@@ -1,0 +1,16 @@
+# Development services only. Django and React run natively, not in containers.
+name: erms # isolates ERMS from your other Docker projects
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: erms-redis
+    restart: unless-stopped
+    command: [ "redis-server", "--save", "", "--appendonly", "no" ] # counters are short-lived: no disk persistence
+    ports:
+      - "127.0.0.1:${ERMS_REDIS_PORT:-6380}:6379" # localhost only; port overridable
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
