@@ -7,10 +7,13 @@ from rest_framework_simplejwt.settings import api_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenViewBase
 
+from apps.companies.models import Company
+from shared.constants.roles import Role
 from shared.exceptions.api import ApiError
 
 from . import services
 from .models import User
+from .permissions import IsSuperAdmin
 from .serializers import (
     GoogleLoginSerializer,
     LoginSerializer,
@@ -67,6 +70,14 @@ class LoginView(PublicAPIView):
         return Response({"access": access, "refresh": refresh, "user": MeSerializer(user).data})
 
 
+class SuperAdminLoginView(PublicAPIView):
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user, access, refresh = services.login_super_admin(**serializer.validated_data)
+        return Response({"access": access, "refresh": refresh, "user": MeSerializer(user).data})
+
+
 class ActiveTokenRefreshSerializer(TokenRefreshSerializer):
     """simplejwt's refresh (rotation + blacklist of the old token) plus an account-state check,
     so a blocked or deleted user cannot mint new access tokens."""
@@ -105,7 +116,7 @@ class PasswordResetRequestView(PublicAPIView):
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         services.request_password_reset(**serializer.validated_data)
-        return Response({"message": "If an account exists for this email, a reset code has been sent."})
+        return Response({"message": "If an account exists for this email, password reset instructions have been sent."})
 
 
 class PasswordResetConfirmView(PublicAPIView):
@@ -113,7 +124,7 @@ class PasswordResetConfirmView(PublicAPIView):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         services.confirm_password_reset(**serializer.validated_data)
-        return Response({"message": "Password updated. Please log in."})
+        return Response({"message": "Password updated successfully. Please log in."})
 
 
 class GoogleLoginView(PublicAPIView):
@@ -125,3 +136,22 @@ class GoogleLoginView(PublicAPIView):
             {"access": access, "refresh": refresh, "user": MeSerializer(user).data, "created": created},
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+
+class AdminDashboardStatsView(APIView):
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        total_users = User.objects.count()
+        candidates = User.objects.filter(role=Role.CANDIDATE.value).count()
+        recruiters = User.objects.filter(role=Role.RECRUITER.value).count()
+        companies = Company.objects.count()
+        pending_verifications = Company.objects.filter(verification_status="PENDING").count()
+
+        return Response({
+            "total_users": total_users,
+            "active_candidates": candidates,
+            "active_recruiters": recruiters,
+            "registered_companies": companies,
+            "pending_verifications": pending_verifications,
+        })

@@ -9,11 +9,14 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
-from django.core.cache import cache
 from django.contrib.auth.hashers import make_password
+from django.contrib.auth.tokens import default_token_generator
+from django.core.cache import cache
 from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
 from apps.companies.models import Company
 from shared.constants.auth import AuthProvider, OtpPurpose
@@ -224,6 +227,14 @@ def login(*, email, password):
     return user, str(refresh.access_token), str(refresh)
 
 
+def login_super_admin(*, email, password):
+    """Authenticate a superadmin user. Rejects any non-superadmin accounts."""
+    user, access, refresh = login(email=email, password=password)
+    if user.role != Role.SUPER_ADMIN:
+        raise ApiError("admin_access_denied", "Access denied. Administrator privileges required.", 403)
+    return user, access, refresh
+
+
 def logout(*, user, refresh_token):
     """Blacklist the refresh token. The short-lived access token simply expires."""
     try:
@@ -235,8 +246,14 @@ def logout(*, user, refresh_token):
     token.blacklist()
 
 
+def revoke_all_sessions(user):
+    """Blacklist every refresh token the user has outstanding."""
+    for token in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=token)
+
+
 # ---------------------------------------------------------------------------
-# Password reset (OTP purpose = password_reset)
+# Password reset (Stateless signed token link via PasswordResetTokenGenerator)
 # ---------------------------------------------------------------------------
 def request_password_reset(*, email):
     """Always looks successful from the outside, so it cannot be used to discover accounts."""
@@ -244,42 +261,62 @@ def request_password_reset(*, email):
     user = User.objects.filter(email=email, is_active=True, is_email_verified=True).first()
     if user is None:
         return
+
+    # Check send limits / cooldown to prevent spamming
+    cooldown_key = f"pwd_reset:cooldown:{email}"
+    if cache.get(cooldown_key):
+        return  # silently swallow
+    if _incr(f"pwd_reset:sends:{email}", timeout=3600) > settings.OTP_MAX_SENDS_PER_HOUR:
+        return  # silently swallow
+    cache.set(cooldown_key, 1, timeout=settings.OTP_RESEND_COOLDOWN_SECONDS)
+
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173").rstrip("/")
+    reset_link = f"{frontend_url}/reset-password?uid={uid}&token={token}"
+    timeout_minutes = getattr(settings, "PASSWORD_RESET_TIMEOUT", 900) // 60
+
+    send_mail(
+        "Reset your TalentBridge password",
+        f"Hello {user.full_name or 'there'},\n\n"
+        f"You requested to reset your password. Click the link below to set a new password:\n\n"
+        f"{reset_link}\n\n"
+        f"This link will expire in {timeout_minutes} minutes.\n"
+        "If you did not request this, you can safely ignore this email.\n",
+        settings.DEFAULT_FROM_EMAIL,
+        [email],
+        fail_silently=False,
+    )
+
+
+def confirm_password_reset(*, uid, token, new_password):
+    """Verify stateless signed token, set new password, unlock account and end every session."""
     try:
-        issue_otp(user=user, email=email, purpose=OtpPurpose.PASSWORD_RESET)
-    except ApiError as exc:
-        if exc.status_code != 429:  # throttled requests are swallowed, anything else is a real error
-            raise
+        user_id = force_str(urlsafe_base64_decode(uid))
+        user = User.objects.get(pk=user_id)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        raise ApiError("invalid_token", "The password reset link is invalid or has expired.", 400)
 
+    if not default_token_generator.check_token(user, token):
+        raise ApiError("invalid_token", "The password reset link is invalid or has expired.", 400)
 
-def revoke_all_sessions(user):
-    """Blacklist every refresh token the user has outstanding."""
-    for token in OutstandingToken.objects.filter(user=user):
-        BlacklistedToken.objects.get_or_create(token=token)
+    if not user.is_active:
+        raise ApiError("account_disabled", "This account has been deleted or disabled.", 403)
+    if user.suspended_at is not None:
+        raise ApiError("account_suspended", "This account has been suspended.", 403)
 
-
-def confirm_password_reset(*, email, code, new_password):
-    """Consume the OTP, set the password, unlock the account and end every session.
-
-    The password strength is validated in the serializer BEFORE this runs, so a weak
-    password never burns the user's code.
-    """
-    email = email.strip().lower()
     now = timezone.now()
     with transaction.atomic():
-        otp = _consume_otp(email=email, purpose=OtpPurpose.PASSWORD_RESET, code=code)
-        user = otp.user
-        if not user.is_active:
-            raise ApiError("invalid_otp", "Invalid or expired code.")
         user.set_password(new_password)
         user.save(update_fields=["password", "updated_at"])
 
         security, _ = UserSecurity.objects.select_for_update().get_or_create(user=user)
-        security.password_last_changed_at = now  # also invalidates older access tokens (see authentication.py)
+        security.password_last_changed_at = now
         security.failed_login_count = 0
         security.locked_until = None
         security.save()
         revoke_all_sessions(user)
-    cache.delete(f"otp:attempts:{otp.id}")
+
     return user
 
 
