@@ -18,7 +18,7 @@ ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
-    "django.contrib.auth",          # still required by admin/DRF (creates Django's own auth_* tables)
+    "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
@@ -138,8 +138,12 @@ OTP_RESEND_COOLDOWN_SECONDS = 60
 OTP_MAX_SENDS_PER_HOUR = 5
 
 # Google sign-in (Web application client ID from Google Cloud Console; not a secret)
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip("'\" ")
 
 # Login lockout (state kept in user_security.failed_login_count / locked_until)
 LOGIN_MAX_FAILED_ATTEMPTS = 5
 LOGIN_LOCKOUT_MINUTES = 15
+
+# Password reset link settings (stateless token from PasswordResetTokenGenerator)
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173").rstrip("/")
+PASSWORD_RESET_TIMEOUT = int(os.environ.get("PASSWORD_RESET_TIMEOUT", "900"))  # 15 minutes in seconds

@@ -1,5 +1,7 @@
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils.encoding import force_str
+from django.utils.http import urlsafe_base64_decode
 from rest_framework import serializers
 
 from apps.companies.models import Company
@@ -19,7 +21,15 @@ class RegisterSerializer(serializers.Serializer):
     accept_terms = serializers.BooleanField()
 
     def validate_email(self, value):
-        return value.strip().lower()
+        email = value.strip().lower()
+        existing = User.objects.filter(email=email).first()
+        if existing:
+            if existing.is_email_verified:
+                raise serializers.ValidationError("An account with this email already exists.")
+            raise serializers.ValidationError(
+                "This email is registered but not verified. Please verify your OTP to continue."
+            )
+        return email
 
     def validate_accept_terms(self, value):
         if value is not True:
@@ -90,12 +100,18 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
-    email = serializers.EmailField(max_length=255)
-    code = serializers.RegexField(r"^\d{6}$", error_messages={"invalid": "Enter the 6-digit code."})
+    uid = serializers.CharField(max_length=128)
+    token = serializers.CharField(max_length=255)
     new_password = serializers.CharField(max_length=128, trim_whitespace=False, write_only=True)
 
     def validate(self, attrs):
-        user = User.objects.filter(email=attrs["email"].strip().lower()).first()  # None is fine
+        user = None
+        try:
+            user_id = force_str(urlsafe_base64_decode(attrs["uid"]))
+            user = User.objects.filter(pk=user_id).first()
+        except Exception:
+            pass
+
         try:
             validate_password(attrs["new_password"], user=user)
         except DjangoValidationError as exc:
