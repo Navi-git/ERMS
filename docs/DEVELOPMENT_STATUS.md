@@ -9,6 +9,7 @@
 | 3 | Login, JWT refresh, logout, /me, lockout | DONE: tests passed (verified by owner) |
 | 4 | Password reset (request + confirm, sessions revoked) | DONE: tests passed (86/86 total, verified by owner) |
 | 5 | Google OAuth | Not started |
+DONE: tests passed (102/102, verified by owner)
 | 6 | Frontend (needs Figma designs) | Not started |
 
 ## Decisions
