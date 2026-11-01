@@ -65,6 +65,12 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-3">
             <Link
+              to="/settings"
+              className="text-xs font-semibold text-[#45464d] hover:text-[#0058be] px-3 py-1.5 rounded-md hover:bg-[#eceef0] transition-colors"
+            >
+              Account Settings
+            </Link>
+            <Link
               to="/"
               className="text-xs font-semibold text-[#45464d] hover:text-[#0058be] px-3 py-1.5 rounded-md hover:bg-[#eceef0] transition-colors"
             >
@@ -72,7 +78,7 @@ export default function DashboardPage() {
             </Link>
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#ba1a1a] bg-[#ffdad6]/40 hover:bg-[#ffdad6] px-3 py-1.5 rounded-[4px] transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#ba1a1a] bg-[#ffdad6]/40 hover:bg-[#ffdad6] px-3 py-1.5 rounded-[4px] transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               Sign Out
