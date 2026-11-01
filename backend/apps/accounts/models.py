@@ -1,4 +1,5 @@
 
+from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
@@ -128,3 +129,21 @@ class AuthIdentity(models.Model):
 
     class Meta:
         db_table = "auth_identities"
+
+class AuditLog(models.Model):
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="audit_actions")
+    actor_type = models.CharField(max_length=20)
+    action = models.CharField(max_length=100)
+    entity_type = models.CharField(max_length=100, null=True, blank=True)
+    entity_id = models.BigIntegerField(null=True, blank=True)
+    old_values = models.JSONField(null=True, blank=True)
+    new_values = models.JSONField(null=True, blank=True)
+    details = models.JSONField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+    request_id = models.CharField(max_length=100, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "audit_logs"
+        ordering = ["-created_at"]

@@ -1,4 +1,6 @@
 import axiosClient from './axiosClient';
+import userApi from './userApi';
+import adminApi from './adminApi';
 
 export const authApi = {
   register: (data) => axiosClient.post('/auth/register/', data),
@@ -13,6 +15,10 @@ export const authApi = {
   getMe: () => axiosClient.get('/auth/me/'),
   requestPasswordReset: (data) => axiosClient.post('/auth/password-reset/request/', data),
   confirmPasswordReset: (data) => axiosClient.post('/auth/password-reset/confirm/', data),
+  user: userApi,
+  admin: adminApi,
 };
 
+export { userApi, adminApi };
 export default authApi;
+
