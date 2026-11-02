@@ -114,3 +114,4 @@ class TestCandidateSkills:
         del_res = api.delete(f"/api/v1/candidate/skills/{skill_to_delete_id}/")
         assert del_res.status_code == status.HTTP_204_NO_CONTENT
         assert not CandidateSkill.objects.filter(id=skill_to_delete_id).exists()
+

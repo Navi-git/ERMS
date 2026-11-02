@@ -85,3 +85,4 @@ class TestCandidateProfile:
 
         res = api.get("/api/v1/candidate/profile/")
         assert res.status_code == status.HTTP_403_FORBIDDEN
+

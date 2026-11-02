@@ -36,3 +36,4 @@ urlpatterns = [
     path("resumes/<int:pk>/analyze/", CandidateResumeAnalyzeView.as_view(), name="candidate-resume-analyze"),
     path("resumes/<int:pk>/download/", CandidateResumeDownloadView.as_view(), name="candidate-resume-download"),
 ]
+

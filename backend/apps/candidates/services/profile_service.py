@@ -252,3 +252,4 @@ def add_or_update_candidate_skill(
 def delete_candidate_skill(profile: CandidateProfile, skill_item_id: int) -> bool:
     count, _ = profile.skills.filter(id=skill_item_id).delete()
     return count > 0
+

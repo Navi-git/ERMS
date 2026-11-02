@@ -194,3 +194,4 @@ class CandidateSkill(models.Model):
     def __str__(self):
         skill_name = self.skill.value if self.skill else self.custom_skill_name
         return f"CandidateSkill({skill_name}, {self.proficiency_level})"
+

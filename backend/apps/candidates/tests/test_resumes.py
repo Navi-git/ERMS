@@ -142,3 +142,4 @@ class TestResumeManagementAndATS:
         auth_client(api, other_user)
         stranger_dl = api.get(f"/api/v1/candidate/resumes/{resume_id}/download/")
         assert stranger_dl.status_code == status.HTTP_403_FORBIDDEN
+
