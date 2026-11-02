@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.master_data",
     "apps.companies",
+    "apps.candidates",
 ]
 
 MIDDLEWARE = [
@@ -107,6 +108,7 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+PRIVATE_STORAGE_ROOT = BASE_DIR / "storage" / "private"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"  # bigint ids, as in the ERD
 

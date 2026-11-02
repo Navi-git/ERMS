@@ -10,6 +10,8 @@ urlpatterns = [
     path("api/v1/admin/", include("apps.accounts.admin_urls")),
     path("api/v1/admin/", include("apps.master_data.admin_urls")),
     path("api/v1/master-data/", include("apps.master_data.urls")),
+    path("api/v1/candidate/", include("apps.candidates.urls")),
+    path("api/v1/recruiter/", include("apps.candidates.recruiter_urls")),
 ]
 
 if settings.DEBUG:
