@@ -126,7 +126,7 @@ class TestVerifyIdToken:
         settings.GOOGLE_CLIENT_ID = "client-id"
         monkeypatch.setattr(
             google_auth.google_id_token, "verify_oauth2_token",
-            lambda token, req, aud: {"sub": 42, "email": "Jane@Example.COM", "email_verified": True, "name": " Jane "},
+            lambda *args, **kwargs: {"sub": 42, "email": "Jane@Example.COM", "email_verified": True, "name": " Jane "},
         )
         assert google_auth.verify_id_token("t") == {
             "sub": "42", "email": "jane@example.com", "name": "Jane", "picture": None,
@@ -136,7 +136,7 @@ class TestVerifyIdToken:
         settings.GOOGLE_CLIENT_ID = "client-id"
         monkeypatch.setattr(
             google_auth.google_id_token, "verify_oauth2_token",
-            lambda token, req, aud: {"sub": "1", "email": "a@b.com", "email_verified": False},
+            lambda *args, **kwargs: {"sub": "1", "email": "a@b.com", "email_verified": False},
         )
         with pytest.raises(ApiError) as exc:
             google_auth.verify_id_token("t")
@@ -145,7 +145,7 @@ class TestVerifyIdToken:
     def test_bad_signature_or_audience_rejected(self, settings, monkeypatch):
         settings.GOOGLE_CLIENT_ID = "client-id"
 
-        def boom(token, req, aud):
+        def boom(*args, **kwargs):
             raise ValueError("Wrong recipient")
 
         monkeypatch.setattr(google_auth.google_id_token, "verify_oauth2_token", boom)

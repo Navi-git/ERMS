@@ -21,15 +21,7 @@ class RegisterSerializer(serializers.Serializer):
     accept_terms = serializers.BooleanField()
 
     def validate_email(self, value):
-        email = value.strip().lower()
-        existing = User.objects.filter(email=email).first()
-        if existing:
-            if existing.is_email_verified:
-                raise serializers.ValidationError("An account with this email already exists.")
-            raise serializers.ValidationError(
-                "This email is registered but not verified. Please verify your OTP to continue."
-            )
-        return email
+        return value.strip().lower()
 
     def validate_accept_terms(self, value):
         if value is not True:

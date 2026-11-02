@@ -15,6 +15,7 @@ from shared.exceptions.api import ApiError
 
 from .audit import record_audit_log
 from .models import AuthIdentity, User, UserSecurity
+from rest_framework_simplejwt.tokens import RefreshToken
 from .services import revoke_all_sessions
 
 ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"]
@@ -181,6 +182,12 @@ def change_password(*, user, current_password=None, new_password=None, request=N
         entity_id=user.id,
         request=request,
     )
+
+    refresh = RefreshToken.for_user(user)
+    return {
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+    }
 
 
 def list_linked_logins(*, user):

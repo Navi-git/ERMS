@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { Eye, EyeOff, Building2, User, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Building2, User, ArrowRight, AlertCircle, CheckCircle, CheckCircle2 } from 'lucide-react';
 import authApi from '../api/authApi';
 import { setCredentials } from '../store/slices/authSlice';
 
@@ -52,13 +52,22 @@ export default function RegisterPage() {
     formData.confirmPassword && formData.password !== formData.confirmPassword
   );
 
+  const passwordRules = [
+    { label: 'At least 8 characters', valid: formData.password.length >= 8 },
+    { label: 'At least one uppercase letter', valid: /[A-Z]/.test(formData.password) },
+    { label: 'At least one lowercase letter', valid: /[a-z]/.test(formData.password) },
+    { label: 'At least one number', valid: /[0-9]/.test(formData.password) },
+    { label: 'At least one special character', valid: /[^A-Za-z0-9]/.test(formData.password) },
+  ];
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
 
     // Client-side validations
-    if (formData.password.length < 8) {
-      setErrorMessage('Password must be at least 8 characters with letters and numbers.');
+    const allRulesPassed = passwordRules.every((r) => r.valid);
+    if (!allRulesPassed) {
+      setErrorMessage('Please satisfy all password security requirements.');
       return;
     }
 
@@ -356,9 +365,25 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p className="mt-1 text-[11px] text-[#76777d]">
-                Must be at least 8 characters with letters and numbers.
-              </p>
+              {/* Password Strength Checklist */}
+              {formData.password.length > 0 && (
+                <div className="mt-2.5 p-3 bg-[#f8f9fb] rounded-lg border border-[#e5e8ec] space-y-1.5">
+                  <div className="text-[11px] font-bold text-[#717680] uppercase tracking-wider mb-1">
+                    Password Requirements:
+                  </div>
+                  {passwordRules.map((rule, idx) => (
+                    <div
+                      key={idx}
+                      className={`text-xs flex items-center gap-2 ${
+                        rule.valid ? 'text-emerald-600 font-medium' : 'text-gray-400'
+                      }`}
+                    >
+                      <CheckCircle2 className={`w-3.5 h-3.5 ${rule.valid ? 'text-emerald-500' : 'text-gray-300'}`} />
+                      <span>{rule.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Confirm Password Field */}

@@ -47,7 +47,11 @@ class TestLoginSuccess:
     def test_superuser_without_security_row_can_login(self, api):
         User.objects.create_superuser("root@example.com", PASSWORD, full_name="Root")
         assert not UserSecurity.objects.exists()
-        r = login(api, email="root@example.com")
+        # Public login blocks superadmin
+        r_public = login(api, email="root@example.com")
+        assert r_public.status_code == 403 and r_public.data["code"] == "admin_must_use_admin_portal"
+        # Admin login allows superadmin
+        r = api.post(reverse("accounts:admin-login"), {"email": "root@example.com", "password": PASSWORD}, format="json")
         assert r.status_code == 200 and r.data["user"]["role"] == "super_admin"
         assert UserSecurity.objects.count() == 1
 

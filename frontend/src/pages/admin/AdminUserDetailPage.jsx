@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
+import { resolvePhotoUrl } from '../../utils/imageUrl';
+import { useToast } from '../../context/ToastContext';
 
 export default function AdminUserDetailPage() {
   const { id } = useParams();
@@ -31,7 +33,7 @@ export default function AdminUserDetailPage() {
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
   const [activeTab, setActiveTab] = useState('account');
-  const [feedbackMsg, setFeedbackMsg] = useState(null);
+  const { showToast } = useToast();
 
   // Suspend modal
   const [suspendModalOpen, setSuspendModalOpen] = useState(false);
@@ -87,11 +89,11 @@ export default function AdminUserDetailPage() {
     setSuspendLoading(true);
     try {
       await adminApi.suspendUser(id, suspendReason.trim());
-      setFeedbackMsg({ type: 'success', text: 'User suspended successfully.' });
+      showToast('User suspended successfully.', 'success');
       setSuspendModalOpen(false);
       fetchDetail();
     } catch (err) {
-      setFeedbackMsg({ type: 'error', text: err.response?.data?.message || 'Failed to suspend user.' });
+      showToast(err.response?.data?.message || 'Failed to suspend user.', 'error');
     } finally {
       setSuspendLoading(false);
     }
@@ -105,18 +107,18 @@ export default function AdminUserDetailPage() {
       if (!window.confirm(`Are you sure you want to deactivate ${userData.user.email}?`)) return;
       try {
         await adminApi.deleteUser(id);
-        setFeedbackMsg({ type: 'success', text: 'User deactivated successfully.' });
+        showToast('User deactivated successfully.', 'success');
         fetchDetail();
       } catch (err) {
-        setFeedbackMsg({ type: 'error', text: err.response?.data?.message || 'Failed to deactivate user.' });
+        showToast(err.response?.data?.message || 'Failed to deactivate user.', 'error');
       }
     } else {
       try {
         await adminApi.restoreUser(id);
-        setFeedbackMsg({ type: 'success', text: 'User restored successfully.' });
+        showToast('User restored successfully.', 'success');
         fetchDetail();
       } catch (err) {
-        setFeedbackMsg({ type: 'error', text: err.response?.data?.message || 'Failed to restore user.' });
+        showToast(err.response?.data?.message || 'Failed to restore user.', 'error');
       }
     }
   };
@@ -125,9 +127,9 @@ export default function AdminUserDetailPage() {
     setResetLoading(true);
     try {
       await adminApi.sendPasswordReset(id);
-      setFeedbackMsg({ type: 'success', text: `Password reset link sent to ${userData.user.email}!` });
+      showToast(`Password reset link sent to ${userData.user.email}!`, 'success');
     } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Failed to send password reset email.' });
+      showToast('Failed to send password reset email.', 'error');
     } finally {
       setResetLoading(false);
     }
@@ -186,11 +188,10 @@ export default function AdminUserDetailPage() {
         {/* Feedback Alert */}
         {feedbackMsg && (
           <div
-            className={`p-4 rounded-xl text-sm flex items-center justify-between ${
-              feedbackMsg.type === 'success'
+            className={`p-4 rounded-xl text-sm flex items-center justify-between ${feedbackMsg.type === 'success'
                 ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
                 : 'bg-rose-50 border border-rose-200 text-rose-800'
-            }`}
+              }`}
           >
             <span>{feedbackMsg.text}</span>
             <button onClick={() => setFeedbackMsg(null)} className="text-gray-400 hover:text-gray-600">
@@ -199,14 +200,14 @@ export default function AdminUserDetailPage() {
           </div>
         )}
 
-        {/* Top Header Card Matching Figma */}
+        {/* Top Header Card */}
         <div className="bg-[#f0f2f5] rounded-2xl p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-5">
             <div className="relative">
               <div className="w-20 h-20 rounded-full bg-white text-[#191c1e] flex items-center justify-center font-bold text-2xl shadow-sm border-2 border-white overflow-hidden">
                 {user.profile_picture_url ? (
                   <img
-                    src={user.profile_picture_url}
+                    src={resolvePhotoUrl(user.profile_picture_url)}
                     alt={user.full_name}
                     className="w-full h-full object-cover"
                   />
@@ -247,14 +248,12 @@ export default function AdminUserDetailPage() {
                 <button
                   type="button"
                   onClick={handleToggleSuspend}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                    !isSuspended ? 'bg-emerald-600' : 'bg-rose-500'
-                  }`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${!isSuspended ? 'bg-emerald-600' : 'bg-rose-500'
+                    }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      !isSuspended ? 'translate-x-6' : 'translate-x-1'
-                    }`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${!isSuspended ? 'translate-x-6' : 'translate-x-1'
+                      }`}
                   />
                 </button>
                 <span className={`text-xs font-semibold ${!isSuspended ? 'text-emerald-700' : 'text-rose-600'}`}>
@@ -288,21 +287,19 @@ export default function AdminUserDetailPage() {
         <div className="border-b border-[#e5e8ec] flex items-center gap-8">
           <button
             onClick={() => setActiveTab('account')}
-            className={`pb-3 text-xs font-bold tracking-tight border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'account'
+            className={`pb-3 text-xs font-bold tracking-tight border-b-2 transition-colors cursor-pointer ${activeTab === 'account'
                 ? 'border-[#0058be] text-[#0058be]'
                 : 'border-transparent text-[#717680] hover:text-[#191c1e]'
-            }`}
+              }`}
           >
             Account Info
           </button>
           <button
             onClick={() => setActiveTab('activity')}
-            className={`pb-3 text-xs font-bold tracking-tight border-b-2 transition-colors cursor-pointer ${
-              activeTab === 'activity'
+            className={`pb-3 text-xs font-bold tracking-tight border-b-2 transition-colors cursor-pointer ${activeTab === 'activity'
                 ? 'border-[#0058be] text-[#0058be]'
                 : 'border-transparent text-[#717680] hover:text-[#191c1e]'
-            }`}
+              }`}
           >
             Activity Log ({recent_activity?.length || 0})
           </button>

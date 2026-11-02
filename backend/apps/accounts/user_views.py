@@ -59,14 +59,15 @@ class UserPasswordChangeView(APIView):
     def post(self, request):
         serializer = UserPasswordChangeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user_services.change_password(
+        tokens = user_services.change_password(
             user=request.user,
             current_password=serializer.validated_data.get("current_password"),
             new_password=serializer.validated_data["new_password"],
             request=request,
         )
         return Response({
-            "message": "Password changed successfully. Active sessions have been logged out."
+            "message": "Password changed successfully.",
+            **tokens,
         })
 
 
