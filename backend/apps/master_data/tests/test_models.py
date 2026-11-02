@@ -11,6 +11,7 @@ def test_master_data_items_columns_match_erd():
     assert cols == {
         "id", "category", "key", "value", "description",
         "display_order", "is_active", "created_at", "updated_at",
+        "parent_id",
     }
 
 

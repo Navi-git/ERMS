@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { User, LogOut, Briefcase } from 'lucide-react';
 import { logout } from '../store/slices/authSlice';
+import { resolvePhotoUrl } from '../utils/imageUrl';
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -11,8 +12,14 @@ export default function Navbar() {
 
   const handleLogout = () => {
     dispatch(logout());
+    localStorage.removeItem('erms_access_token');
+    localStorage.removeItem('erms_refresh_token');
+    localStorage.removeItem('erms_user');
     navigate('/');
   };
+
+  const dashboardPath = user?.role === 'super_admin' ? '/admin/dashboard' : '/dashboard';
+  const avatarUrl = resolvePhotoUrl(user?.profile_picture_url);
 
   return (
     <header className="sticky top-0 z-50 bg-[#f7f9fb]/90 backdrop-blur-md border-b border-[#e0e3e5]">
@@ -48,46 +55,47 @@ export default function Navbar() {
           {isAuthenticated ? (
             <div className="flex items-center gap-3">
               <Link
-                to="/dashboard"
+                to={dashboardPath}
                 className="flex items-center gap-2 text-sm font-semibold text-[#191c1e] hover:text-[#0058be] px-3 py-1.5 rounded-md hover:bg-[#eceef0] transition-colors"
               >
-                <div className="w-8 h-8 rounded-full bg-[#0058be]/10 text-[#0058be] flex items-center justify-center font-semibold text-xs">
-                  {user?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                <div className="w-8 h-8 rounded-full bg-[#0058be] text-white flex items-center justify-center font-semibold text-xs overflow-hidden shrink-0">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt="User Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{user?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}</span>
+                  )}
                 </div>
                 <span className="hidden sm:inline">
-                  {user?.full_name || 'My Dashboard'}
+                  {user?.full_name || (user?.role === 'super_admin' ? 'Admin Central' : 'My Dashboard')}
                 </span>
               </Link>
               <button
                 onClick={handleLogout}
-                className="p-2 text-[#45464d] hover:text-[#ba1a1a] rounded-md hover:bg-[#ffdad6]/40 transition-colors"
+                className="p-2 text-[#45464d] hover:text-[#ba1a1a] rounded-md hover:bg-[#ffdad6]/40 transition-colors cursor-pointer"
                 title="Log out"
               >
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
           ) : (
-            <>
+            <div className="flex items-center gap-2">
               <Link
                 to="/login"
-                className="text-sm font-medium text-[#191c1e] hover:text-[#0058be] px-3.5 py-2 transition-colors"
+                className="text-sm font-semibold text-[#45464d] hover:text-[#0058be] px-4 py-2 rounded-md hover:bg-[#eceef0] transition-colors"
               >
                 Sign In
               </Link>
               <Link
                 to="/register"
-                className="text-sm font-semibold text-white bg-[#0058be] hover:bg-[#0047a0] px-4 py-2 rounded-[4px] shadow-sm transition-all hover:shadow active:scale-[0.98]"
+                className="text-sm font-semibold text-white bg-[#0058be] hover:bg-[#0047a0] px-4 py-2 rounded-md shadow-sm transition-colors"
               >
                 Register
               </Link>
-              <Link
-                to="/login?role=candidate"
-                className="w-9 h-9 rounded-full bg-[#000000] text-white flex items-center justify-center hover:bg-[#1f2937] transition-colors ml-1 shadow-sm"
-                title="Candidate Portal"
-              >
-                <User className="w-4 h-4" />
-              </Link>
-            </>
+            </div>
           )}
         </div>
       </div>

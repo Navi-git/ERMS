@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import authApi from '../../api/authApi';
 import { logout } from '../../store/slices/authSlice';
+import { resolvePhotoUrl } from '../../utils/imageUrl';
 
 export default function AdminLayout({ children }) {
   const navigate = useNavigate();
@@ -64,6 +65,8 @@ export default function AdminLayout({ children }) {
     }
     return location.pathname.startsWith(itemPath);
   };
+
+  const adminAvatar = resolvePhotoUrl(user?.profile_picture_url);
 
   return (
     <div className="min-h-screen bg-[#f8f9fb] flex text-[#191c1e]">
@@ -146,12 +149,12 @@ export default function AdminLayout({ children }) {
                 <div className="text-xs font-bold text-[#191c1e]">{user?.full_name || 'Admin Central'}</div>
                 <div className="text-[10px] text-[#717680] font-medium uppercase tracking-wider">Super Admin</div>
               </div>
-              <div className="w-9 h-9 rounded-full bg-[#0058be] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100">
-                {user?.profile_picture_url ? (
+              <div className="w-9 h-9 rounded-full bg-[#0058be] text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100 overflow-hidden">
+                {adminAvatar ? (
                   <img
-                    src={user.profile_picture_url}
+                    src={adminAvatar}
                     alt="Admin Avatar"
-                    className="w-full h-full rounded-full object-cover"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <span>
@@ -176,4 +179,3 @@ export default function AdminLayout({ children }) {
     </div>
   );
 }
-

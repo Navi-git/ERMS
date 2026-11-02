@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import authApi from '../api/authApi';
 import { setUser, logout } from '../store/slices/authSlice';
+import { resolvePhotoUrl } from '../utils/imageUrl';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -43,6 +44,7 @@ export default function DashboardPage() {
   };
 
   const isRecruiter = user?.role === 'recruiter';
+  const avatarUrl = resolvePhotoUrl(user?.profile_picture_url);
 
   return (
     <div className="min-h-screen bg-[#f7f9fb] flex flex-col">
@@ -66,13 +68,24 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <Link
               to="/settings"
-              className="text-xs font-semibold text-[#45464d] hover:text-[#0058be] px-3 py-1.5 rounded-md hover:bg-[#eceef0] transition-colors"
+              className="flex items-center gap-2 text-xs font-semibold text-[#45464d] hover:text-[#0058be] px-3 py-1.5 rounded-md hover:bg-[#eceef0] transition-colors"
             >
-              Account Settings
+              <div className="w-7 h-7 rounded-full bg-[#0058be] text-white flex items-center justify-center font-bold text-[11px] overflow-hidden shrink-0">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt="User Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span>{user?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}</span>
+                )}
+              </div>
+              <span className="hidden sm:inline">Account Settings</span>
             </Link>
             <Link
               to="/"
-              className="text-xs font-semibold text-[#45464d] hover:text-[#0058be] px-3 py-1.5 rounded-md hover:bg-[#eceef0] transition-colors"
+              className="text-xs font-semibold text-[#45464d] hover:text-[#0058be] px-3 py-1.5 rounded-md hover:bg-[#eceef0] transition-colors hidden sm:inline"
             >
               Public Home
             </Link>
@@ -93,8 +106,16 @@ export default function DashboardPage() {
         {/* Welcome Banner */}
         <div className="bg-white border border-[#e0e3e5] rounded-xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-full bg-[#0058be]/10 text-[#0058be] flex items-center justify-center font-bold text-2xl shrink-0">
-              {user?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
+            <div className="w-16 h-16 rounded-full bg-[#0058be] text-white flex items-center justify-center font-bold text-2xl shrink-0 overflow-hidden shadow-sm border-2 border-white">
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={user?.full_name || 'Profile'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span>{user?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}</span>
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -121,72 +142,67 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-3 shrink-0">
             {isRecruiter ? (
-              <button className="bg-[#0058be] hover:bg-[#004bb0] text-white font-semibold text-xs px-4 py-2.5 rounded-[4px] shadow-sm transition-all flex items-center gap-1.5">
+              <button className="bg-[#0058be] hover:bg-[#004bb0] text-white font-semibold text-xs px-4 py-2.5 rounded-[4px] shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
                 <Briefcase className="w-4 h-4" />
                 Post New Job
               </button>
             ) : (
-              <button className="bg-[#0058be] hover:bg-[#004bb0] text-white font-semibold text-xs px-4 py-2.5 rounded-[4px] shadow-sm transition-all flex items-center gap-1.5">
+              <button className="bg-[#0058be] hover:bg-[#004bb0] text-white font-semibold text-xs px-4 py-2.5 rounded-[4px] shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
                 <Sparkles className="w-4 h-4" />
-                Update Career Profile
+                Find Matches
               </button>
             )}
           </div>
         </div>
 
-        {/* Dashboard Grid */}
+        {/* Dashboard Placeholder Sections */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
           <div className="bg-white border border-[#e0e3e5] rounded-xl p-6 shadow-sm">
-            <span className="text-xs font-semibold text-[#76777d] uppercase tracking-wider">
-              {isRecruiter ? 'Open Positions' : 'Profile Status'}
-            </span>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-[#191c1e]">
-                {isRecruiter ? '4 Active' : '92%'}
+            <div className="flex items-center justify-between pb-3 border-b border-[#f0f2f5]">
+              <span className="text-xs font-bold text-[#45464d] uppercase tracking-wider">
+                {isRecruiter ? 'Active Job Posts' : 'Applications Submitted'}
               </span>
-              <span className="text-xs text-emerald-600 font-semibold">
-                {isRecruiter ? 'accepting applications' : 'complete'}
-              </span>
+              <Briefcase className="w-4 h-4 text-[#0058be]" />
             </div>
-            <p className="text-xs text-[#45464d] mt-3">
-              {isRecruiter
-                ? 'Your company jobs are currently visible to top-tier verified talent.'
-                : 'Complete your portfolio link to reach 100% visibility.'}
-            </p>
+            <div className="mt-4">
+              <div className="text-3xl font-extrabold text-[#191c1e]">0</div>
+              <p className="text-xs text-[#76777d] mt-1">
+                {isRecruiter ? 'No active listings currently published.' : 'You have not submitted any applications yet.'}
+              </p>
+            </div>
           </div>
 
           <div className="bg-white border border-[#e0e3e5] rounded-xl p-6 shadow-sm">
-            <span className="text-xs font-semibold text-[#76777d] uppercase tracking-wider">
-              {isRecruiter ? 'Total Pipeline' : 'Application Inquiries'}
-            </span>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-[#0058be]">
-                {isRecruiter ? '28' : '5'}
+            <div className="flex items-center justify-between pb-3 border-b border-[#f0f2f5]">
+              <span className="text-xs font-bold text-[#45464d] uppercase tracking-wider">
+                {isRecruiter ? 'Talent Inquiries' : 'Interviews Scheduled'}
               </span>
-              <span className="text-xs text-[#45464d]">in review</span>
+              <Users className="w-4 h-4 text-[#0058be]" />
             </div>
-            <p className="text-xs text-[#45464d] mt-3">
-              {isRecruiter
-                ? '3 new candidates passed automated screening today.'
-                : '2 enterprise recruiters viewed your profile this week.'}
-            </p>
+            <div className="mt-4">
+              <div className="text-3xl font-extrabold text-[#191c1e]">0</div>
+              <p className="text-xs text-[#76777d] mt-1">
+                {isRecruiter ? 'Candidates in your pipeline will appear here.' : 'Scheduled interview rounds will be displayed here.'}
+              </p>
+            </div>
           </div>
 
           <div className="bg-white border border-[#e0e3e5] rounded-xl p-6 shadow-sm">
-            <span className="text-xs font-semibold text-[#76777d] uppercase tracking-wider">
-              Security & Verification
-            </span>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-emerald-600">
-                Active
+            <div className="flex items-center justify-between pb-3 border-b border-[#f0f2f5]">
+              <span className="text-xs font-bold text-[#45464d] uppercase tracking-wider">
+                {isRecruiter ? 'Company Status' : 'Profile Completeness'}
               </span>
+              <Shield className="w-4 h-4 text-[#0058be]" />
             </div>
-            <p className="text-xs text-[#45464d] mt-3">
-              Protected by multi-factor OTP verification and automated session refresh.
-            </p>
+            <div className="mt-4">
+              <div className="text-3xl font-extrabold text-[#191c1e]">
+                {isRecruiter ? 'Pending' : '20%'}
+              </div>
+              <p className="text-xs text-[#76777d] mt-1">
+                {isRecruiter ? 'Company verification is underway.' : 'Complete your work history and skills to unlock recommendations.'}
+              </p>
+            </div>
           </div>
-
         </div>
 
       </main>

@@ -174,7 +174,7 @@ def resend_email_otp(*, email):
 # ---------------------------------------------------------------------------
 # Login / logout
 # ---------------------------------------------------------------------------
-def login(*, email, password):
+def login(*, email, password, allow_admin=False):
     """Check credentials with lockout, then issue JWTs.
 
     Order matters: password first, account state second, so only the real owner of an
@@ -221,6 +221,13 @@ def login(*, email, password):
     if not user.is_email_verified:
         raise ApiError("email_not_verified", "Verify your email to continue.", 403)
 
+    if not allow_admin and user.role == Role.SUPER_ADMIN:
+        raise ApiError(
+            "admin_must_use_admin_portal",
+            "Super Administrator accounts must sign in via the Admin Portal at /admin/login.",
+            403,
+        )
+
     user.last_login_at = now
     user.save(update_fields=["last_login_at", "updated_at"])
     refresh = RefreshToken.for_user(user)
@@ -229,7 +236,7 @@ def login(*, email, password):
 
 def login_super_admin(*, email, password):
     """Authenticate a superadmin user. Rejects any non-superadmin accounts."""
-    user, access, refresh = login(email=email, password=password)
+    user, access, refresh = login(email=email, password=password, allow_admin=True)
     if user.role != Role.SUPER_ADMIN:
         raise ApiError("admin_access_denied", "Access denied. Administrator privileges required.", 403)
     return user, access, refresh
@@ -383,6 +390,13 @@ def login_with_google(*, id_token, accept_terms=False, _retry=True):
         raise ApiError("account_disabled", "This account has been deleted or disabled.", 403)
     if user.suspended_at is not None:
         raise ApiError("account_suspended", "This account has been suspended.", 403)
+
+    if user.role == Role.SUPER_ADMIN:
+        raise ApiError(
+            "admin_must_use_admin_portal",
+            "Super Administrator accounts must sign in via the Admin Portal at /admin/login.",
+            403,
+        )
 
     user.last_login_at = now
     user.save(update_fields=["last_login_at", "updated_at"])

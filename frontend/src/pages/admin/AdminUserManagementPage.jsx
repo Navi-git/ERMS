@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
+import { resolvePhotoUrl } from '../../utils/imageUrl';
+import { useToast } from '../../context/ToastContext';
 
 export default function AdminUserManagementPage() {
   const navigate = useNavigate();
@@ -56,7 +58,7 @@ export default function AdminUserManagementPage() {
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminError, setAdminError] = useState('');
 
-  const [feedbackMsg, setFeedbackMsg] = useState(null);
+  const { showToast } = useToast();
 
   // Fetch users
   const fetchUsers = useCallback(async () => {
@@ -123,7 +125,7 @@ export default function AdminUserManagementPage() {
     setSuspendError('');
     try {
       await adminApi.suspendUser(suspendModalUser.id, suspendReason.trim());
-      setFeedbackMsg({ type: 'success', text: `Account ${suspendModalUser.email} has been suspended.` });
+      showToast(`Account ${suspendModalUser.email} has been suspended.`, 'success');
       setSuspendModalUser(null);
       fetchUsers();
     } catch (err) {
@@ -138,10 +140,10 @@ export default function AdminUserManagementPage() {
     setActionMenuOpenId(null);
     try {
       await adminApi.reactivateUser(user.id);
-      setFeedbackMsg({ type: 'success', text: `Account ${user.email} reactivated.` });
+      showToast(`Account ${user.email} reactivated.`, 'success');
       fetchUsers();
     } catch (err) {
-      setFeedbackMsg({ type: 'error', text: err.response?.data?.message || 'Failed to reactivate user.' });
+      showToast(err.response?.data?.message || 'Failed to reactivate user.', 'error');
     }
   };
 
@@ -151,10 +153,10 @@ export default function AdminUserManagementPage() {
     if (!window.confirm(`Are you sure you want to deactivate ${user.email}?`)) return;
     try {
       await adminApi.deleteUser(user.id);
-      setFeedbackMsg({ type: 'success', text: `Account ${user.email} deactivated.` });
+      showToast(`Account ${user.email} deactivated.`, 'success');
       fetchUsers();
     } catch (err) {
-      setFeedbackMsg({ type: 'error', text: err.response?.data?.message || 'Failed to deactivate user.' });
+      showToast(err.response?.data?.message || 'Failed to deactivate user.', 'error');
     }
   };
 
@@ -163,10 +165,10 @@ export default function AdminUserManagementPage() {
     setActionMenuOpenId(null);
     try {
       await adminApi.restoreUser(user.id);
-      setFeedbackMsg({ type: 'success', text: `Account ${user.email} restored.` });
+      showToast(`Account ${user.email} restored.`, 'success');
       fetchUsers();
     } catch (err) {
-      setFeedbackMsg({ type: 'error', text: err.response?.data?.message || 'Failed to restore user.' });
+      showToast(err.response?.data?.message || 'Failed to restore user.', 'error');
     }
   };
 
@@ -185,7 +187,7 @@ export default function AdminUserManagementPage() {
         email: adminForm.email,
         password: adminForm.password,
       });
-      setFeedbackMsg({ type: 'success', text: `Super Administrator ${adminForm.email} created!` });
+      showToast(`Super Administrator ${adminForm.email} created!`, 'success');
       setAddAdminModalOpen(false);
       setAdminForm({ fullName: '', email: '', password: '', confirmPassword: '' });
       fetchUsers();
@@ -271,21 +273,7 @@ export default function AdminUserManagementPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Feedback Alert */}
-        {feedbackMsg && (
-          <div
-            className={`p-4 rounded-xl text-sm flex items-center justify-between ${
-              feedbackMsg.type === 'success'
-                ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
-                : 'bg-rose-50 border border-rose-200 text-rose-800'
-            }`}
-          >
-            <span>{feedbackMsg.text}</span>
-            <button onClick={() => setFeedbackMsg(null)} className="text-gray-400 hover:text-gray-600">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
+
 
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -461,7 +449,7 @@ export default function AdminUserManagementPage() {
                           <div className="w-9 h-9 rounded-full bg-[#191c1e] text-white flex items-center justify-center font-bold text-xs shrink-0">
                             {u.profile_picture_url ? (
                               <img
-                                src={u.profile_picture_url}
+                                src={resolvePhotoUrl(u.profile_picture_url)}
                                 alt={u.full_name}
                                 className="w-full h-full rounded-full object-cover"
                               />
