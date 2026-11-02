@@ -8,6 +8,8 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
+import CandidateProfilePage from './pages/candidate/CandidateProfilePage';
+import ResumeManagementPage from './pages/candidate/ResumeManagementPage';
 import AdminLoginPage from './pages/admin/AdminLoginPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminUserManagementPage from './pages/admin/AdminUserManagementPage';
@@ -34,6 +36,10 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/candidate/profile" element={<CandidateProfilePage />} />
+          <Route path="/candidate/resumes" element={<ResumeManagementPage />} />
+          <Route path="/candidate/applications" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/candidate/saved-jobs" element={<Navigate to="/dashboard" replace />} />
         </Route>
 
         {/* Super Admin Portal Routes */}
