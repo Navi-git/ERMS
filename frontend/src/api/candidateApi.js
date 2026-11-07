@@ -36,6 +36,7 @@ export const candidateApi = {
   getResumeDetail: (id) => axiosClient.get(`/candidate/resumes/${id}/`),
   setDefaultResume: (id) => axiosClient.post(`/candidate/resumes/${id}/set-default/`),
   archiveResume: (id) => axiosClient.post(`/candidate/resumes/${id}/archive/`),
+  unarchiveResume: (id) => axiosClient.post(`/candidate/resumes/${id}/unarchive/`),
   analyzeResume: (id) => axiosClient.post(`/candidate/resumes/${id}/analyze/`),
   downloadResume: (id) =>
     axiosClient.get(`/candidate/resumes/${id}/download/`, {
@@ -45,3 +46,4 @@ export const candidateApi = {
   // Recruiter Search
   searchCandidates: (params) => axiosClient.get('/recruiter/candidates/', { params }),
 };
+

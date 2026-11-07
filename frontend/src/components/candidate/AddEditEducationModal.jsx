@@ -193,3 +193,4 @@ export default function AddEditEducationModal({ initialData, onClose, onSave }) 
     </div>
   );
 }
+

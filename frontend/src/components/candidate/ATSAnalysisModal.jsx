@@ -216,3 +216,4 @@ export default function ATSAnalysisModal({ resume, onClose }) {
     </div>
   );
 }
+

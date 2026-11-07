@@ -11,6 +11,7 @@ import {
   Clock,
   RotateCw,
   Archive,
+  ArchiveRestore,
   Eye,
   FileCode,
 } from 'lucide-react';
@@ -18,6 +19,7 @@ import CandidateLayout from '../../layouts/CandidateLayout';
 import { candidateApi } from '../../api/candidateApi';
 import { useToast } from '../../context/ToastContext';
 import ATSAnalysisModal from '../../components/candidate/ATSAnalysisModal';
+import Pagination from '../../components/common/Pagination';
 
 export default function ResumeManagementPage() {
   const { showToast } = useToast();
@@ -26,6 +28,11 @@ export default function ResumeManagementPage() {
   const [resumes, setResumes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
+
+  const totalPages = Math.ceil(resumes.length / pageSize) || 1;
+  const paginatedResumes = resumes.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Upload Form State
   const [selectedFile, setSelectedFile] = useState(null);
@@ -52,6 +59,7 @@ export default function ResumeManagementPage() {
   };
 
   useEffect(() => {
+    setCurrentPage(1);
     loadResumes();
   }, [showArchived]);
 
@@ -138,6 +146,17 @@ export default function ResumeManagementPage() {
       loadResumes();
     } catch (err) {
       showToast('Failed to archive resume.', 'error');
+    }
+  };
+
+  // Unarchive Resume
+  const handleUnarchive = async (id) => {
+    try {
+      await candidateApi.unarchiveResume(id);
+      showToast('Resume restored and unarchived successfully.', 'success');
+      loadResumes();
+    } catch (err) {
+      showToast('Failed to unarchive resume.', 'error');
     }
   };
 
@@ -372,7 +391,7 @@ export default function ResumeManagementPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {resumes.map((resume) => {
+              {paginatedResumes.map((resume) => {
                 const isPrimary = resume.is_default;
                 const isArchived = Boolean(resume.archived_at);
 
@@ -465,13 +484,21 @@ export default function ResumeManagementPage() {
                         >
                           <Download className="w-4 h-4" />
                         </button>
-                        {!isArchived && (
+                        {!isArchived ? (
                           <button
                             onClick={() => handleArchive(resume.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                             title="Archive resume"
                           >
                             <Trash2 className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleUnarchive(resume.id)}
+                            className="p-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                            title="Unarchive resume"
+                          >
+                            <ArchiveRestore className="w-4 h-4" />
                           </button>
                         )}
                       </div>
@@ -479,6 +506,20 @@ export default function ResumeManagementPage() {
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {!loading && resumes.length > pageSize && (
+            <div className="bg-white rounded-xl border border-[#e0e3e5] overflow-hidden shadow-xs">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={resumes.length}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                itemName="resumes"
+              />
             </div>
           )}
         </div>
@@ -494,3 +535,4 @@ export default function ResumeManagementPage() {
     </CandidateLayout>
   );
 }
+

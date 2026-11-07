@@ -252,3 +252,4 @@ export default function AddSkillModal({ existingSkills, onClose, onSave }) {
     </div>
   );
 }
+
