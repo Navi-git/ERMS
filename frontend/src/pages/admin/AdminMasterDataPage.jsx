@@ -17,11 +17,13 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout';
 import masterDataApi from '../../api/masterDataApi';
+import Pagination from '../../components/common/Pagination';
 
 const CATEGORIES = [
   { id: 'industry', label: 'Industries' },
   { id: 'department', label: 'Departments' },
   { id: 'job_category', label: 'Job Categories' },
+  { id: 'employment_type', label: 'Employment Types' },
   { id: 'skill', label: 'Skills' },
   { id: 'experience_level', label: 'Experience Levels' },
   { id: 'work_mode', label: 'Work Modes' },
@@ -35,6 +37,11 @@ export default function AdminMasterDataPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  const totalPages = Math.ceil(items.length / pageSize) || 1;
+  const paginatedItems = items.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Modals
   const [modalMode, setModalMode] = useState(null); // 'create' | 'edit' | 'aliases' | null
@@ -76,6 +83,7 @@ export default function AdminMasterDataPage() {
 
   useEffect(() => {
     fetchItems();
+    setCurrentPage(1);
   }, [fetchItems]);
 
   // Load Aliases when Aliases Modal opens
@@ -345,7 +353,7 @@ export default function AdminMasterDataPage() {
                     </td>
                   </tr>
                 ) : (
-                  items.map((item) => (
+                  paginatedItems.map((item) => (
                     <tr key={item.id} className="hover:bg-[#fafbfc] transition-colors">
                       <td className="py-3.5 px-6 font-mono font-bold text-[#191c1e]">
                         {item.key}
@@ -417,6 +425,18 @@ export default function AdminMasterDataPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {!loading && items.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={items.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              itemName="taxonomies"
+            />
+          )}
         </div>
       </div>
 

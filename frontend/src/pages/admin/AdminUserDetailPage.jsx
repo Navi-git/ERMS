@@ -20,11 +20,16 @@ import {
   X,
   Ban,
   User,
+  Briefcase,
+  MapPin,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
 import { useToast } from '../../context/ToastContext';
+import Pagination from '../../components/common/Pagination';
 
 export default function AdminUserDetailPage() {
   const { id } = useParams();
@@ -34,6 +39,7 @@ export default function AdminUserDetailPage() {
   const [userData, setUserData] = useState(null);
   const [activeTab, setActiveTab] = useState('account');
   const { showToast } = useToast();
+  const [feedbackMsg, setFeedbackMsg] = useState(null);
 
   // Suspend modal
   const [suspendModalOpen, setSuspendModalOpen] = useState(false);
@@ -42,6 +48,10 @@ export default function AdminUserDetailPage() {
 
   // Password reset state
   const [resetLoading, setResetLoading] = useState(false);
+
+  // Activity log pagination
+  const [activityPage, setActivityPage] = useState(1);
+  const activityPageSize = 10;
 
   const fetchDetail = useCallback(async () => {
     setLoading(true);
@@ -158,7 +168,7 @@ export default function AdminUserDetailPage() {
     );
   }
 
-  const { user, security, company, recent_activity } = userData;
+  const { user, security, company, candidate_profile, recent_activity } = userData;
   const isSuperAdmin = user.role === 'super_admin';
   const isSuspended = !!user.suspended_at;
 
@@ -188,10 +198,11 @@ export default function AdminUserDetailPage() {
         {/* Feedback Alert */}
         {feedbackMsg && (
           <div
-            className={`p-4 rounded-xl text-sm flex items-center justify-between ${feedbackMsg.type === 'success'
+            className={`p-4 rounded-xl text-sm flex items-center justify-between ${
+              feedbackMsg.type === 'success'
                 ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
                 : 'bg-rose-50 border border-rose-200 text-rose-800'
-              }`}
+            }`}
           >
             <span>{feedbackMsg.text}</span>
             <button onClick={() => setFeedbackMsg(null)} className="text-gray-400 hover:text-gray-600">
@@ -248,12 +259,14 @@ export default function AdminUserDetailPage() {
                 <button
                   type="button"
                   onClick={handleToggleSuspend}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${!isSuspended ? 'bg-emerald-600' : 'bg-rose-500'
-                    }`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                    !isSuspended ? 'bg-emerald-600' : 'bg-rose-500'
+                  }`}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${!isSuspended ? 'translate-x-6' : 'translate-x-1'
-                      }`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      !isSuspended ? 'translate-x-6' : 'translate-x-1'
+                    }`}
                   />
                 </button>
                 <span className={`text-xs font-semibold ${!isSuspended ? 'text-emerald-700' : 'text-rose-600'}`}>
@@ -287,19 +300,21 @@ export default function AdminUserDetailPage() {
         <div className="border-b border-[#e5e8ec] flex items-center gap-8">
           <button
             onClick={() => setActiveTab('account')}
-            className={`pb-3 text-xs font-bold tracking-tight border-b-2 transition-colors cursor-pointer ${activeTab === 'account'
+            className={`pb-3 text-xs font-bold tracking-tight border-b-2 transition-colors cursor-pointer ${
+              activeTab === 'account'
                 ? 'border-[#0058be] text-[#0058be]'
                 : 'border-transparent text-[#717680] hover:text-[#191c1e]'
-              }`}
+            }`}
           >
             Account Info
           </button>
           <button
             onClick={() => setActiveTab('activity')}
-            className={`pb-3 text-xs font-bold tracking-tight border-b-2 transition-colors cursor-pointer ${activeTab === 'activity'
+            className={`pb-3 text-xs font-bold tracking-tight border-b-2 transition-colors cursor-pointer ${
+              activeTab === 'activity'
                 ? 'border-[#0058be] text-[#0058be]'
                 : 'border-transparent text-[#717680] hover:text-[#191c1e]'
-              }`}
+            }`}
           >
             Activity Log ({recent_activity?.length || 0})
           </button>
@@ -308,7 +323,7 @@ export default function AdminUserDetailPage() {
         {/* Tab 1: Account Info Content */}
         {activeTab === 'account' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left 2 cols: Personal Details & Company Affiliation */}
+            {/* Left 2 cols: Personal Details, Company Affiliation / Candidate Profile */}
             <div className="lg:col-span-2 space-y-6">
               {/* Personal Details Card */}
               <div className="bg-white rounded-xl border border-[#e5e8ec] p-6 shadow-2xs">
@@ -393,6 +408,163 @@ export default function AdminUserDetailPage() {
                     </div>
                   ) : (
                     <p className="text-xs text-[#717680]">No company linked to this recruiter yet.</p>
+                  )}
+                </div>
+              )}
+
+              {/* Candidate Profile Card (if Candidate) */}
+              {user.role === 'candidate' && (
+                <div className="bg-white rounded-xl border border-[#e5e8ec] p-6 shadow-2xs space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-[#191c1e] font-bold text-sm">
+                      <Briefcase className="w-4 h-4 text-[#0058be]" />
+                      <span>Candidate Profile & Career Info</span>
+                    </div>
+                    {candidate_profile?.seeking_status && (
+                      <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-50 text-[#0058be] border border-blue-200 capitalize">
+                        {candidate_profile.seeking_status.replace('_', ' ')}
+                      </span>
+                    )}
+                  </div>
+
+                  {candidate_profile ? (
+                    <div className="space-y-4">
+                      {candidate_profile.headline && (
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#717680] uppercase tracking-wider mb-1">
+                            Headline / Professional Title
+                          </label>
+                          <div className="p-3 bg-[#f8f9fb] border border-[#e5e8ec] rounded-lg text-xs font-semibold text-[#191c1e]">
+                            {candidate_profile.headline}
+                          </div>
+                        </div>
+                      )}
+
+                      {candidate_profile.summary && (
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#717680] uppercase tracking-wider mb-1">
+                            Professional Summary / Bio
+                          </label>
+                          <div className="p-3 bg-[#f8f9fb] border border-[#e5e8ec] rounded-lg text-xs text-[#45464d] whitespace-pre-line leading-relaxed">
+                            {candidate_profile.summary}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#717680] uppercase tracking-wider mb-1">
+                            Current Location
+                          </label>
+                          <div className="p-3 bg-[#f8f9fb] border border-[#e5e8ec] rounded-lg text-xs font-medium text-[#191c1e] flex items-center gap-2">
+                            <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                            <span>{candidate_profile.current_location || 'Not specified'}</span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#717680] uppercase tracking-wider mb-1">
+                            Willing to Relocate
+                          </label>
+                          <div className="p-3 bg-[#f8f9fb] border border-[#e5e8ec] rounded-lg text-xs font-medium text-[#191c1e]">
+                            {candidate_profile.willing_to_relocate ? 'Yes' : 'No'}
+                          </div>
+                        </div>
+
+                        {(candidate_profile.expected_salary_min || candidate_profile.expected_salary_max) && (
+                          <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-bold text-[#717680] uppercase tracking-wider mb-1">
+                              Expected Salary Range
+                            </label>
+                            <div className="p-3 bg-[#f8f9fb] border border-[#e5e8ec] rounded-lg text-xs font-medium text-[#191c1e]">
+                              {candidate_profile.currency} {candidate_profile.expected_salary_min?.toLocaleString()} - {candidate_profile.expected_salary_max?.toLocaleString()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Online Profiles */}
+                      {(candidate_profile.linkedin_url || candidate_profile.github_url || candidate_profile.portfolio_url) && (
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#717680] uppercase tracking-wider mb-1">
+                            External Profiles & Portfolios
+                          </label>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            {candidate_profile.linkedin_url && (
+                              <a
+                                href={candidate_profile.linkedin_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-blue-700 bg-blue-50/50 hover:bg-blue-100/50 transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                <span>LinkedIn</span>
+                              </a>
+                            )}
+                            {candidate_profile.github_url && (
+                              <a
+                                href={candidate_profile.github_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-800 bg-gray-100 hover:bg-gray-200 transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                <span>GitHub</span>
+                              </a>
+                            )}
+                            {candidate_profile.portfolio_url && (
+                              <a
+                                href={candidate_profile.portfolio_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                <span>Portfolio</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Uploaded Resumes */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-[#717680] uppercase tracking-wider mb-2">
+                          Attached Resumes ({candidate_profile.resumes?.length || 0})
+                        </label>
+                        {candidate_profile.resumes && candidate_profile.resumes.length > 0 ? (
+                          <div className="space-y-2">
+                            {candidate_profile.resumes.map((resume) => (
+                              <div
+                                key={resume.id}
+                                className="p-3 bg-[#f8f9fb] border border-[#e5e8ec] rounded-lg flex items-center justify-between text-xs"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <FileText className="w-4 h-4 text-[#0058be]" />
+                                  <div>
+                                    <span className="font-semibold text-[#191c1e]">{resume.title || resume.file_name}</span>
+                                    {resume.file_size && (
+                                      <span className="text-[11px] text-gray-400 ml-2">
+                                        ({Math.round(resume.file_size / 1024)} KB)
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                {resume.is_default && (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                    Primary
+                                  </span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-[#717680] italic">No resumes uploaded yet.</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[#717680]">This candidate has not set up their profile yet.</p>
                   )}
                 </div>
               )}
@@ -489,26 +661,42 @@ export default function AdminUserDetailPage() {
           <div className="bg-white rounded-xl border border-[#e5e8ec] p-6 shadow-2xs">
             <h3 className="text-sm font-bold text-[#191c1e] mb-4">Complete Audit Log for this User</h3>
             {recent_activity && recent_activity.length > 0 ? (
-              <div className="divide-y divide-[#f0f2f5]">
-                {recent_activity.map((log) => (
-                  <div key={log.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
-                    <div>
-                      <span className="font-bold text-[#191c1e] uppercase tracking-wider text-[11px]">
-                        {log.action}
-                      </span>
-                      {log.details?.reason && (
-                        <span className="ml-2 text-rose-600 font-medium">({log.details.reason})</span>
-                      )}
-                      <div className="text-[11px] text-[#717680] mt-0.5">
-                        Actor: {log.actor_type} &bull; IP: {log.ip_address || 'N/A'}
+              <>
+                <div className="divide-y divide-[#f0f2f5]">
+                  {recent_activity
+                    .slice((activityPage - 1) * activityPageSize, activityPage * activityPageSize)
+                    .map((log) => (
+                      <div key={log.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2">
+                        <div>
+                          <span className="font-bold text-[#191c1e] uppercase tracking-wider text-[11px]">
+                            {log.action}
+                          </span>
+                          {log.details?.reason && (
+                            <span className="ml-2 text-rose-600 font-medium">({log.details.reason})</span>
+                          )}
+                          <div className="text-[11px] text-[#717680] mt-0.5">
+                            Actor: {log.actor_type} &bull; IP: {log.ip_address || 'N/A'}
+                          </div>
+                        </div>
+                        <div className="text-[11px] text-[#717680] whitespace-nowrap">
+                          {new Date(log.created_at).toLocaleString()}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-[11px] text-[#717680] whitespace-nowrap">
-                      {new Date(log.created_at).toLocaleString()}
-                    </div>
+                    ))}
+                </div>
+                {recent_activity.length > activityPageSize && (
+                  <div className="mt-4 -mx-6 -mb-6">
+                    <Pagination
+                      currentPage={activityPage}
+                      totalPages={Math.ceil(recent_activity.length / activityPageSize) || 1}
+                      totalItems={recent_activity.length}
+                      pageSize={activityPageSize}
+                      onPageChange={setActivityPage}
+                      itemName="logs"
+                    />
                   </div>
-                ))}
-              </div>
+                )}
+              </>
             ) : (
               <p className="text-xs text-[#717680]">No logs recorded for this account.</p>
             )}
@@ -571,4 +759,3 @@ export default function AdminUserDetailPage() {
     </AdminLayout>
   );
 }
-
