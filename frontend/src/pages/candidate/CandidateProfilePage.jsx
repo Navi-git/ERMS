@@ -193,35 +193,37 @@ export default function CandidateProfilePage() {
         {/* Banner Card */}
         <div className="bg-white rounded-2xl border border-[#e0e3e5] shadow-xs overflow-hidden">
           {/* Cover gradient */}
-          <div className="h-36 sm:h-44 bg-gradient-to-r from-[#0058be] via-[#0070ea] to-[#4285f4] relative">
-            <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
+          <div className="h-32 sm:h-40 bg-gradient-to-r from-[#e8f5ff] via-[#f0f4f9] to-[#e8eef8] border-b border-[#e2e8f0] relative">
+            <div className="absolute inset-0 opacity-50 bg-[radial-gradient(#0058be_1px,transparent_1px)] [background-size:16px_16px]" />
           </div>
 
-          <div className="px-6 pb-6 pt-0 relative">
-            <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between -mt-16 sm:-mt-20 gap-4 mb-4">
-              <div className="flex items-end gap-4">
+          <div className="px-6 pb-6 pt-3 relative">
+            <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-16 sm:-mt-20">
                 {avatarUrl ? (
                   <img
                     src={avatarUrl}
                     alt={user.full_name}
-                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover ring-4 ring-white shadow-md bg-white"
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover ring-4 ring-white shadow-md bg-white shrink-0"
                   />
                 ) : (
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-blue-100 text-[#0058be] ring-4 ring-white shadow-md flex items-center justify-center text-3xl font-black">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-blue-100 text-[#0058be] ring-4 ring-white shadow-md flex items-center justify-center text-3xl font-black shrink-0">
                     {user.full_name?.charAt(0) || 'C'}
                   </div>
                 )}
                 <div className="mb-1">
-                  <h1 className="text-xl sm:text-2xl font-bold text-[#191c1e]">
+                  {/* High-contrast dark charcoal name */}
+                  <h1 className="text-xl sm:text-2xl font-extrabold text-[#111827]">
                     {user.full_name || 'Candidate Name'}
                   </h1>
-                  <p className="text-sm font-medium text-[#41474d]">
+                  {/* Bold vibrant brand blue headline */}
+                  <p className="text-sm font-bold text-[#0058be] mt-0.5">
                     {profile.headline || 'No headline set'}
                   </p>
-                  <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-[#71787e]">
+                  <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-[#475569]">
                     {profile.current_location && (
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="flex items-center gap-1 font-medium">
+                        <MapPin className="w-3.5 h-3.5 text-slate-500" />
                         {profile.current_location}
                       </span>
                     )}
@@ -232,10 +234,10 @@ export default function CandidateProfilePage() {
 
               <button
                 onClick={() => setEditProfileOpen(true)}
-                className="px-4 py-2 rounded-xl bg-white border border-[#c3c7cb] hover:bg-slate-50 text-[#191c1e] text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors self-end"
+                className="px-4 py-2 rounded-xl bg-white border border-[#c3c7cb] hover:bg-slate-50 text-[#191c1e] text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors self-start sm:self-end cursor-pointer"
               >
                 <Edit2 className="w-3.5 h-3.5 text-[#0058be]" />
-                Edit Profile
+                <span>Edit Profile</span>
               </button>
             </div>
           </div>

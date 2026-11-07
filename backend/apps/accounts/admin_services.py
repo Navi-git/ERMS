@@ -101,6 +101,35 @@ def get_user_detail(*, user_id):
 
     security = UserSecurity.objects.filter(user=user).first()
     company = None
+    candidate_profile = None
+    if user.role == Role.CANDIDATE.value:
+        try:
+            from apps.candidates.models import CandidateProfile
+            cp = CandidateProfile.objects.filter(user=user).first()
+            if cp:
+                resumes = list(
+                    cp.resumes.filter(archived_at__isnull=True)
+                    .order_by("-is_default", "-uploaded_at")
+                    .values("id", "title", "file_name", "file_size", "is_default", "uploaded_at")
+                )
+                candidate_profile = {
+                    "id": cp.id,
+                    "headline": cp.headline,
+                    "summary": cp.summary,
+                    "current_location": cp.current_location,
+                    "seeking_status": cp.seeking_status,
+                    "expected_salary_min": cp.expected_salary_min,
+                    "expected_salary_max": cp.expected_salary_max,
+                    "currency": cp.currency,
+                    "work_authorization_status": cp.work_authorization_status,
+                    "willing_to_relocate": cp.willing_to_relocate,
+                    "linkedin_url": cp.linkedin_url,
+                    "github_url": cp.github_url,
+                    "portfolio_url": cp.portfolio_url,
+                    "resumes": resumes,
+                }
+        except Exception:
+            candidate_profile = None
     if user.role == Role.RECRUITER.value:
         comp = Company.objects.filter(admin_user=user).first()
         if comp:
@@ -139,6 +168,7 @@ def get_user_detail(*, user_id):
             "password_last_changed_at": security.password_last_changed_at if security else None,
         },
         "company": company,
+        "candidate_profile": candidate_profile,
         "recent_activity": recent_logs,
     }
 

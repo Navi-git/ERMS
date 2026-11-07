@@ -282,3 +282,4 @@ export default function EditProfileModal({ profile, onClose, onSave }) {
     </div>
   );
 }
+

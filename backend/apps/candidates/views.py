@@ -40,6 +40,7 @@ from apps.candidates.services.profile_service import (
 )
 from apps.candidates.services.resume_service import (
     archive_resume,
+    unarchive_resume,
     get_resume_for_download,
     run_ats_analysis,
     set_default_resume,
@@ -301,6 +302,19 @@ class CandidateResumeArchiveView(APIView):
         profile = get_or_create_profile(request.user)
         try:
             resume = archive_resume(profile, pk)
+            return Response(ResumeSerializer(resume).data, status=status.HTTP_200_OK)
+        except Resume.DoesNotExist:
+            return Response({"detail": "Resume not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CandidateResumeUnarchiveView(APIView):
+    """POST /api/v1/candidate/resumes/<int:pk>/unarchive/"""
+    permission_classes = [IsAuthenticated, IsCandidateUser]
+
+    def post(self, request, pk):
+        profile = get_or_create_profile(request.user)
+        try:
+            resume = unarchive_resume(profile, pk)
             return Response(ResumeSerializer(resume).data, status=status.HTTP_200_OK)
         except Resume.DoesNotExist:
             return Response({"detail": "Resume not found."}, status=status.HTTP_404_NOT_FOUND)

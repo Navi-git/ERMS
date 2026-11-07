@@ -12,6 +12,7 @@ from apps.candidates.views import (
     CandidateResumeDownloadView,
     CandidateResumeListCreateView,
     CandidateResumeSetDefaultView,
+    CandidateResumeUnarchiveView,
     CandidateSkillDetailView,
     CandidateSkillsView,
 )
@@ -33,7 +34,7 @@ urlpatterns = [
     path("resumes/<int:pk>/", CandidateResumeDetailView.as_view(), name="candidate-resume-detail"),
     path("resumes/<int:pk>/set-default/", CandidateResumeSetDefaultView.as_view(), name="candidate-resume-set-default"),
     path("resumes/<int:pk>/archive/", CandidateResumeArchiveView.as_view(), name="candidate-resume-archive"),
+    path("resumes/<int:pk>/unarchive/", CandidateResumeUnarchiveView.as_view(), name="candidate-resume-unarchive"),
     path("resumes/<int:pk>/analyze/", CandidateResumeAnalyzeView.as_view(), name="candidate-resume-analyze"),
     path("resumes/<int:pk>/download/", CandidateResumeDownloadView.as_view(), name="candidate-resume-download"),
 ]
-

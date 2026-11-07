@@ -136,6 +136,18 @@ def archive_resume(candidate: CandidateProfile, resume_id: int) -> Resume:
     return resume
 
 
+@transaction.atomic
+def unarchive_resume(candidate: CandidateProfile, resume_id: int) -> Resume:
+    """Restores an archived resume. If there are no other active resumes, designates it as primary."""
+    resume = candidate.resumes.get(id=resume_id)
+    resume.archived_at = None
+    has_active_default = candidate.resumes.filter(archived_at__isnull=True, is_default=True).exists()
+    if not has_active_default:
+        resume.is_default = True
+    resume.save(update_fields=["is_default", "archived_at", "updated_at"])
+    return resume
+
+
 def get_resume_for_download(user, resume_id: int) -> Tuple[str, str, str]:
     """Checks permissions and returns (full_path, file_name, file_type)."""
     try:

@@ -112,8 +112,14 @@ PRIVATE_STORAGE_ROOT = BASE_DIR / "storage" / "private"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"  # bigint ids, as in the ERD
 
-# Email
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@erms.local")
+# Email Configuration
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() in ("true", "1", "t")
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD","")  
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@erms.local")
 
 # Legal versions stored on users.terms_version / privacy_version at registration
 TERMS_VERSION = "1.0"

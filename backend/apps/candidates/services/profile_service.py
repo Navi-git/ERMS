@@ -18,25 +18,14 @@ from apps.candidates.models import (
 )
 from apps.master_data.models import MasterDataItem, SkillAliasRelation
 
-
 def get_or_create_profile(user) -> CandidateProfile:
-    """Gets or creates the CandidateProfile for a user."""
+    
     profile, _ = CandidateProfile.objects.get_or_create(user=user)
     return profile
 
 
 def calculate_completeness(profile: CandidateProfile) -> Dict[str, Any]:
-    """Calculates profile completeness percentage and missing recommendations.
 
-    Weights:
-      - Headline & Summary: 15%
-      - Location & Seeking Status: 10%
-      - Work Experience (>= 1): 25%
-      - Education (>= 1): 15%
-      - Skills (>= 3): 20%
-      - Default Resume Uploaded: 15%
-    Total: 100%
-    """
     score = 0.0
     breakdown = {}
     missing_sections = []

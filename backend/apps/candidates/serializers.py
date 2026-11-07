@@ -11,7 +11,7 @@ from apps.candidates.models import (
     ProficiencyLevel,
     Resume,
     ResumeAnalysis,
-    SeekingStatus,
+    SeekingStatus, 
 )
 from apps.candidates.services.profile_service import calculate_completeness
 

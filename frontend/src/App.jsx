@@ -18,19 +18,25 @@ import AdminMasterDataPage from './pages/admin/AdminMasterDataPage';
 import AdminComingSoonPage from './pages/admin/AdminComingSoonPage';
 import AdminRoute from './components/admin/AdminRoute';
 import ProtectedRoute from './components/routes/ProtectedRoute';
+import GuestRoute from './components/routes/GuestRoute';
 import { ToastProvider } from './context/ToastContext';
 
 export default function App() {
   return (
     <ToastProvider>
       <Routes>
-        {/* Public Pages */}
+        {/* Public Landing Page */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/verify-otp" element={<VerifyOtpPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+        {/* Guest Routes (Prevent access if already logged in) */}
+        <Route element={<GuestRoute />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/verify-otp" element={<VerifyOtpPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+        </Route>
 
         {/* Protected Candidate & Recruiter Routes */}
         <Route element={<ProtectedRoute />}>
@@ -43,7 +49,6 @@ export default function App() {
         </Route>
 
         {/* Super Admin Portal Routes */}
-        <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route element={<AdminRoute />}>
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="/admin/users" element={<AdminUserManagementPage />} />

@@ -12,8 +12,6 @@ import {
   CheckCircle2,
   Clock,
   AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
   RotateCcw,
   Trash2,
@@ -24,6 +22,7 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import adminApi from '../../api/adminApi';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
 import { useToast } from '../../context/ToastContext';
+import Pagination from '../../components/common/Pagination';
 
 export default function AdminUserManagementPage() {
   const navigate = useNavigate();
@@ -273,8 +272,6 @@ export default function AdminUserManagementPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-
-
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -561,32 +558,14 @@ export default function AdminUserManagementPage() {
           </div>
 
           {/* Pagination Footer */}
-          <div className="p-4 border-t border-[#e5e8ec] flex items-center justify-between text-xs text-[#717680] bg-[#fafbfc]">
-            <div>
-              Showing {data.results.length === 0 ? 0 : (page - 1) * 10 + 1} to{' '}
-              {Math.min(page * 10, data.count)} of {data.count} users
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="p-1.5 rounded-lg border border-[#e5e8ec] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white text-[#191c1e]"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="font-semibold text-[#191c1e]">
-                {page} / {Math.max(1, data.total_pages)}
-              </span>
-              <button
-                disabled={page >= data.total_pages}
-                onClick={() => setPage((p) => Math.min(data.total_pages, p + 1))}
-                className="p-1.5 rounded-lg border border-[#e5e8ec] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white text-[#191c1e]"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <Pagination
+            currentPage={page}
+            totalPages={data.total_pages}
+            totalItems={data.count}
+            pageSize={10}
+            onPageChange={setPage}
+            itemName="users"
+          />
         </div>
       </div>
 
@@ -745,4 +724,3 @@ export default function AdminUserManagementPage() {
     </AdminLayout>
   );
 }
-
