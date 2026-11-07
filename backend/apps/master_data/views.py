@@ -39,7 +39,15 @@ class PublicMasterDataCategoryView(PublicAPIView):
 
 class PublicEmploymentTypesView(PublicAPIView):
     def get(self, request):
-        types = [{"key": choice.value, "label": choice.label} for choice in EmploymentType]
+        items = list(
+            MasterDataItem.objects.filter(category="employment_type", is_active=True)
+            .order_by("display_order", "value")
+            .values("key", "value")
+        )
+        if items:
+            types = [{"key": it["key"], "label": it["value"]} for it in items]
+        else:
+            types = [{"key": choice.value, "label": choice.label} for choice in EmploymentType]
         return Response(types)
 
 

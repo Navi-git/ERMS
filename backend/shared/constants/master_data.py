@@ -4,6 +4,7 @@ class MasterDataCategory(models.TextChoices):
     INDUSTRY = "industry", "Industry"
     DEPARTMENT = "department", "Department"
     JOB_CATEGORY = "job_category", "Job Category"
+    EMPLOYMENT_TYPE = "employment_type", "Employment Type"
     EXPERIENCE_LEVEL = "experience_level", "Experience Level"
     WORK_MODE = "work_mode", "Work Mode"
     SKILL = "skill", "Skill"
