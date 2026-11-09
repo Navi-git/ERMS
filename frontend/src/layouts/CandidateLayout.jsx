@@ -57,7 +57,7 @@ export default function CandidateLayout({ children }) {
       <aside className="w-64 bg-white border-r border-[#e0e3e5] flex flex-col fixed inset-y-0 z-30">
         {/* Brand */}
         <div className="h-16 px-6 flex items-center border-b border-[#e0e3e5]">
-          <Link to="/" className="flex items-center gap-2.5 group">
+          <Link to="/dashboard" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-lg bg-[#0058be] text-white flex items-center justify-center font-bold text-sm shadow-sm group-hover:bg-[#004ca5] transition-colors">
               TB
             </div>

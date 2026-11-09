@@ -37,6 +37,10 @@ export default function AdminCompanyVerificationDetailPage() {
   // Modals & Action States
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
+  const [approvalRiskLevel, setApprovalRiskLevel] = useState('LOW');
+  const [approvalRiskScore, setApprovalRiskScore] = useState(5.0);
+  const [approvalSuccessModalOpen, setApprovalSuccessModalOpen] = useState(false);
   const [processingAction, setProcessingAction] = useState(false);
 
   // Internal Notes State
@@ -86,15 +90,20 @@ export default function AdminCompanyVerificationDetailPage() {
     }
   };
 
-  // Approve Action
-  const handleApprove = async () => {
-    if (!window.confirm(`Approve verification for ${company.name}? This will grant full enterprise access.`)) {
-      return;
-    }
+  // Approve Action - Open Confirmation Modal
+  const handleApprove = () => {
+    setApproveModalOpen(true);
+  };
 
+  const handleConfirmApprove = async () => {
     try {
       setProcessingAction(true);
-      await adminApi.approveCompany(id, { risk_level: 'LOW', risk_score: 5.0 });
+      await adminApi.approveCompany(id, {
+        risk_level: approvalRiskLevel,
+        risk_score: parseFloat(approvalRiskScore) || 5.0,
+      });
+      setApproveModalOpen(false);
+      setApprovalSuccessModalOpen(true);
       showToast('Company successfully verified and approved!', 'success');
       loadDetail();
     } catch (err) {
@@ -606,6 +615,111 @@ export default function AdminCompanyVerificationDetailPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Confirmation Modal for Verification Approval */}
+        {approveModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-[#e0e3e5] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <div className="px-6 py-4 border-b border-[#e0e3e5] flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-[#191c1e]">Approve Enterprise Verification</h3>
+                    <p className="text-[11px] text-[#71787e]">{company?.name}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setApproveModalOpen(false)}
+                  className="p-1 text-[#71787e] hover:bg-[#f1f4f6] rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <p className="text-xs text-[#41474d] leading-relaxed">
+                  Approving this application marks <strong className="text-[#191c1e]">{company?.name}</strong> as an authenticated employer organization. This will grant full enterprise access, activate job posting capabilities, and display a verified badge to candidates.
+                </p>
+
+                {/* Risk Level Selector */}
+                <div className="space-y-1.5 pt-2">
+                  <label className="text-xs font-bold text-[#191c1e]">Assessed Risk Level</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['LOW', 'MEDIUM', 'HIGH'].map((lvl) => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setApprovalRiskLevel(lvl)}
+                        className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                          approvalRiskLevel === lvl
+                            ? lvl === 'LOW'
+                              ? 'bg-emerald-50 border-emerald-500 text-emerald-800'
+                              : lvl === 'MEDIUM'
+                              ? 'bg-amber-50 border-amber-500 text-amber-800'
+                              : 'bg-red-50 border-red-500 text-red-800'
+                            : 'bg-white border-[#e0e3e5] text-[#71787e] hover:bg-slate-50'
+                        }`}
+                      >
+                        {lvl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#f1f4f6]">
+                  <button
+                    type="button"
+                    onClick={() => setApproveModalOpen(false)}
+                    className="px-4 py-2 text-xs font-semibold text-[#41474d] hover:bg-[#f1f4f6] rounded-xl transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmApprove}
+                    disabled={processingAction}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{processingAction ? 'Approving...' : 'Confirm & Approve'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Beautiful Success Alert Dialog with OK Confirmation Button */}
+        {approvalSuccessModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl border border-emerald-100 p-6 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto shadow-xs">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-extrabold text-base text-[#191c1e]">
+                  Verification Approved!
+                </h3>
+                <p className="text-xs text-[#71787e] leading-relaxed">
+                  <strong className="text-[#191c1e]">{company?.name}</strong> has been successfully verified. Their recruiter accounts now have full enterprise access and verified employer status.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setApprovalSuccessModalOpen(false)}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer"
+                >
+                  OK
+                </button>
+              </div>
             </div>
           </div>
         )}
