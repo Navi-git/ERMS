@@ -12,7 +12,20 @@
 DONE: tests passed (102/102, verified by owner)
 | 6 | Frontend (needs Figma designs) | Not started |
 
-## Decisions
+## Module 6: Jobs (Backend & Frontend)
+
+| Step | Scope | Status |
+|---|---|---|
+| 1 | ERD models (`jobs`, `job_benefits`, `job_skills`, `job_stages`, `saved_jobs`, `reports`, `view_events`, `entity_notes`) | DONE: migrated to PostgreSQL with indexes |
+| 2 | Recruiter Job Lifecycle & Sub-resources (draft, publish, hold, resume, close, stages, skills, benefits, overview) | DONE: fully tested (21 tests passing) |
+| 3 | Public & Candidate Search, Detail, and Saved Jobs (`/jobs`, `/jobs/:id`, `/candidate/saved-jobs`) | DONE: fully tested & frontend verified |
+| 4 | Super Admin Job Directory & Moderation (`/admin/jobs`, `/admin/jobs/:id`) | DONE: fully tested & frontend verified |
+| 5 | Candidate Portal Frontend (Browse, Details, Saved Jobs, Modals) | DONE: Vite production build passed |
+| 6 | Recruiter Portal Frontend (Job Postings, Drafts with readiness indicators, Post/Edit Job Wizard, Pipeline Stages Modal, Custom Benefits Modal, Overview) | DONE: Vite production build passed |
+| 7 | Super Admin Portal Frontend (Job Directory with tabs & metrics, Detail Inspection, Moderation Actions, Internal Notes) | DONE: Vite production build passed |
+
+## Next task
+Module 7: Applications & Screening (Application submission, applicant tracking pipeline Kanban, resume evaluation, ATS match scoring, interview scheduling).
 - ERD change approved: `companies.industry_id` nullable (required again at verification submission).
 - Recruiter `users.full_name` defaults to company name.
 - Block = `suspended_at/suspended_by`; soft delete = `is_active=false`. No schema change.

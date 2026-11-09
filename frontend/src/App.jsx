@@ -23,19 +23,30 @@ import ProtectedRoute from './components/routes/ProtectedRoute';
 import GuestRoute from './components/routes/GuestRoute';
 import BrowseCompaniesPage from './pages/candidate/BrowseCompaniesPage';
 import PublicCompanyProfilePage from './pages/candidate/PublicCompanyProfilePage';
+import BrowseJobsPage from './pages/candidate/BrowseJobsPage';
+import JobDetailPage from './pages/candidate/JobDetailPage';
+import SavedJobsPage from './pages/candidate/SavedJobsPage';
 import RecruiterCompanyProfilePage from './pages/recruiter/RecruiterCompanyProfilePage';
 import EditCompanyProfilePage from './pages/recruiter/EditCompanyProfilePage';
 import CompanyVerificationPage from './pages/recruiter/CompanyVerificationPage';
+import RecruiterJobPostingsPage from './pages/recruiter/RecruiterJobPostingsPage';
+import RecruiterCreateJobPage from './pages/recruiter/RecruiterCreateJobPage';
+import RecruiterEditJobPage from './pages/recruiter/RecruiterEditJobPage';
+import RecruiterJobOverviewPage from './pages/recruiter/RecruiterJobOverviewPage';
+import AdminJobsManagementPage from './pages/admin/AdminJobsManagementPage';
+import AdminJobDetailPage from './pages/admin/AdminJobDetailPage';
 import { ToastProvider } from './context/ToastContext';
 
 export default function App() {
   return (
     <ToastProvider>
       <Routes>
-        {/* Public Landing & Company Directory Pages */}
+        {/* Public Landing & Company Directory & Job Discovery */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/companies" element={<BrowseCompaniesPage />} />
         <Route path="/companies/:id" element={<PublicCompanyProfilePage />} />
+        <Route path="/jobs" element={<BrowseJobsPage />} />
+        <Route path="/jobs/:id" element={<JobDetailPage />} />
 
         {/* Guest Routes (Prevent access if already logged in) */}
         <Route element={<GuestRoute />}>
@@ -54,12 +65,18 @@ export default function App() {
           <Route path="/candidate/profile" element={<CandidateProfilePage />} />
           <Route path="/candidate/resumes" element={<ResumeManagementPage />} />
           <Route path="/candidate/applications" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/candidate/saved-jobs" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/candidate/saved-jobs" element={<SavedJobsPage />} />
 
           {/* Recruiter Company Management & Verification */}
           <Route path="/recruiter/company/profile" element={<RecruiterCompanyProfilePage />} />
           <Route path="/recruiter/company/edit" element={<EditCompanyProfilePage />} />
           <Route path="/recruiter/company/verify" element={<CompanyVerificationPage />} />
+
+          {/* Recruiter Jobs Lifecycle */}
+          <Route path="/recruiter/jobs" element={<RecruiterJobPostingsPage />} />
+          <Route path="/recruiter/jobs/new" element={<RecruiterCreateJobPage />} />
+          <Route path="/recruiter/jobs/:id/edit" element={<RecruiterEditJobPage />} />
+          <Route path="/recruiter/jobs/:id/overview" element={<RecruiterJobOverviewPage />} />
 
           {/* Fallbacks for routes under development to keep users in their portal dashboard */}
           <Route path="/recruiter/*" element={<Navigate to="/dashboard" replace />} />
@@ -75,7 +92,8 @@ export default function App() {
           <Route path="/admin/master-data" element={<AdminMasterDataPage />} />
           <Route path="/admin/companies" element={<AdminCompanyVerificationQueuePage />} />
           <Route path="/admin/companies/:id" element={<AdminCompanyVerificationDetailPage />} />
-          <Route path="/admin/jobs" element={<AdminComingSoonPage />} />
+          <Route path="/admin/jobs" element={<AdminJobsManagementPage />} />
+          <Route path="/admin/jobs/:id" element={<AdminJobDetailPage />} />
           <Route path="/admin/subscriptions" element={<AdminComingSoonPage />} />
           <Route path="/admin/payments" element={<AdminComingSoonPage />} />
           <Route path="/admin/reports" element={<AdminComingSoonPage />} />
