@@ -7,6 +7,7 @@ import {
   FileText,
   Briefcase,
   Bookmark,
+  Building2,
   Bell,
   Settings,
   LogOut,
@@ -41,6 +42,7 @@ export default function CandidateLayout({ children }) {
 
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+    { name: 'Companies', icon: Building2, path: '/companies' },
     { name: 'My Profile', icon: User, path: '/candidate/profile' },
     { name: 'Resumes & ATS', icon: FileText, path: '/candidate/resumes' },
     { name: 'Applications', icon: Briefcase, path: '/candidate/applications' },
