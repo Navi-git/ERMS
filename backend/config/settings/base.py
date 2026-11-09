@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "apps.master_data",
     "apps.companies",
     "apps.candidates",
+    "apps.jobs",
 ]
 
 MIDDLEWARE = [
