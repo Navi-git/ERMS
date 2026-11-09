@@ -28,6 +28,7 @@ export default function AddEditBenefitModal({ isOpen, onClose, onSave, benefit }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!name.trim()) {
       setError('Please provide a benefit title.');
       return;

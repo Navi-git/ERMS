@@ -25,6 +25,8 @@ import CandidateLayout from '../../layouts/CandidateLayout';
 import companyApi from '../../api/companyApi';
 import WriteCompanyReviewModal from '../../components/candidate/WriteCompanyReviewModal';
 import { useToast } from '../../context/ToastContext';
+import { resolvePhotoUrl } from '../../utils/imageUrl';
+import MarkdownContent from '../../components/common/MarkdownContent';
 
 export default function PublicCompanyProfilePage() {
   const { id } = useParams();
@@ -107,65 +109,42 @@ export default function PublicCompanyProfilePage() {
         </Link>
       </div>
 
-      {/* Header Banner & Branding Card */}
+      {/* Header Banner & Branding Card (Non-overlapping Text) */}
       <div className="bg-white rounded-2xl border border-[#e0e3e5] overflow-hidden shadow-xs">
-        {/* Cover image banner */}
-        <div className="h-48 sm:h-64 bg-linear-to-r from-slate-900 to-indigo-950 relative overflow-hidden">
+        {/* Sleek, compact cover image banner */}
+        <div className="h-36 sm:h-44 bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 relative overflow-hidden">
           {company.cover_image_url ? (
-            <img src={company.cover_image_url} alt={company.name} className="w-full h-full object-cover" />
+            <img
+              src={resolvePhotoUrl(company.cover_image_url)}
+              alt={company.name}
+              className="w-full h-full object-cover"
+            />
           ) : (
             <div className="w-full h-full bg-linear-to-r from-[#0058be] via-indigo-700 to-slate-900 opacity-90" />
           )}
-          <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent" />
         </div>
 
-        {/* Company Identity Bar */}
-        <div className="px-6 pb-6 pt-0 relative">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-16 sm:-mt-20">
-            {/* Logo + Basic details */}
-            <div className="flex items-end gap-4">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white border-2 border-white shadow-md p-1 overflow-hidden shrink-0">
-                {company.logo_url ? (
-                  <img
-                    src={company.logo_url}
-                    alt={company.name}
-                    className="w-full h-full object-cover rounded-xl"
-                  />
-                ) : (
-                  <div className="w-full h-full bg-[#f1f4f6] flex items-center justify-center font-bold text-2xl text-[#0058be] rounded-xl">
-                    {company.name?.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-1 mb-1">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-[#191c1e] tracking-tight">
-                    {company.name}
-                  </h1>
-                  {company.verification_status === 'APPROVED' && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Verified</span>
-                    </span>
-                  )}
+        {/* Company Identity Bar - Placed Below Banner for 100% Readability */}
+        <div className="px-6 pb-6 pt-0 relative bg-white">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            {/* Logo Anchored at Banner Edge */}
+            <div className="-mt-12 sm:-mt-14 w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white border-4 border-white shadow-md p-1 overflow-hidden shrink-0 z-10">
+              {company.logo_url ? (
+                <img
+                  src={resolvePhotoUrl(company.logo_url)}
+                  alt={company.name}
+                  className="w-full h-full object-cover rounded-xl"
+                />
+              ) : (
+                <div className="w-full h-full bg-[#f1f4f6] flex items-center justify-center font-bold text-2xl text-[#0058be] rounded-xl">
+                  {company.name?.slice(0, 2).toUpperCase()}
                 </div>
-
-                <div className="flex flex-wrap items-center gap-3 text-xs text-[#71787e]">
-                  <span className="font-semibold text-[#0058be]">
-                    {company.industry?.value || 'Enterprise Technology'}
-                  </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5" />
-                    {[company.city, company.state, company.country].filter(Boolean).join(', ') || 'Global'}
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-2 sm:pt-0 self-start sm:self-end">
+            <div className="flex items-center gap-2 pt-2 sm:pt-4 self-start sm:self-auto">
               {company.website_url && (
                 <a
                   href={company.website_url.startsWith('http') ? company.website_url : `https://${company.website_url}`}
@@ -180,11 +159,38 @@ export default function PublicCompanyProfilePage() {
               )}
               <button
                 type="button"
+                onClick={() => setReviewModalOpen(true)}
                 className="px-4 py-2 bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
               >
-                <Heart className="w-3.5 h-3.5" />
-                <span>Follow</span>
+                <Star className="w-3.5 h-3.5" />
+                <span>Write a Review</span>
               </button>
+            </div>
+          </div>
+
+          {/* Typography Content: Name, Badge, Industry, Location cleanly on white background */}
+          <div className="mt-4 space-y-2">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#191c1e] tracking-tight">
+                {company.name}
+              </h1>
+              {company.verification_status === 'APPROVED' && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Verified Enterprise</span>
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-xs text-[#71787e]">
+              <span className="font-semibold text-[#0058be]">
+                {company.industry?.value || 'Enterprise Technology'}
+              </span>
+              <span>•</span>
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5" />
+                {[company.city, company.state, company.country].filter(Boolean).join(', ') || 'Global Headquarters'}
+              </span>
             </div>
           </div>
         </div>
@@ -200,10 +206,15 @@ export default function PublicCompanyProfilePage() {
               <Info className="w-4 h-4 text-[#0058be]" />
               <span>About {company.name}</span>
             </h2>
-            <div className="prose prose-sm text-xs sm:text-sm text-[#41474d] leading-relaxed whitespace-pre-line">
-              {company.description ||
-                `${company.name} is a high-growth technology leader committed to building scalable solutions and fostering an inclusive, high-performance engineering culture.`}
-            </div>
+            {company.description ? (
+              <div className="text-xs sm:text-sm text-[#41474d] leading-relaxed">
+                <MarkdownContent content={company.description} />
+              </div>
+            ) : (
+              <div className="text-xs sm:text-sm text-[#41474d] leading-relaxed">
+                {`${company.name} is a high-growth technology leader committed to building scalable solutions and fostering an inclusive, high-performance engineering culture.`}
+              </div>
+            )}
 
             {/* Talent Tracks / Focus Areas */}
             {company.talent_tracks && company.talent_tracks.length > 0 && (

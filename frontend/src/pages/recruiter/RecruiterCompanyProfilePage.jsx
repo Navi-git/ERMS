@@ -21,6 +21,8 @@ import {
 import RecruiterLayout from '../../layouts/RecruiterLayout';
 import companyApi from '../../api/companyApi';
 import { useToast } from '../../context/ToastContext';
+import { resolvePhotoUrl } from '../../utils/imageUrl';
+import MarkdownContent from '../../components/common/MarkdownContent';
 
 export default function RecruiterCompanyProfilePage() {
   const navigate = useNavigate();
@@ -82,68 +84,42 @@ export default function RecruiterCompanyProfilePage() {
   return (
     <RecruiterLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Header Banner & Branding (Figma Page 5) */}
+        {/* Header Banner & Branding (Figma Page 5 - Non-overlapping Text) */}
         <div className="bg-white rounded-2xl border border-[#e0e3e5] overflow-hidden shadow-xs">
-          <div className="h-48 sm:h-64 bg-linear-to-r from-slate-900 to-indigo-950 relative overflow-hidden">
+          {/* Compact Banner */}
+          <div className="h-36 sm:h-44 bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 relative overflow-hidden">
             {company.cover_image_url ? (
-              <img src={company.cover_image_url} alt={company.name} className="w-full h-full object-cover" />
+              <img
+                src={resolvePhotoUrl(company.cover_image_url)}
+                alt={company.name}
+                className="w-full h-full object-cover"
+              />
             ) : (
               <div className="w-full h-full bg-linear-to-r from-[#0058be] via-indigo-700 to-slate-900 opacity-90" />
             )}
-            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent" />
           </div>
 
-          <div className="px-6 pb-6 pt-0 relative">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-16 sm:-mt-20">
-              <div className="flex items-end gap-4">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white border-2 border-white shadow-md p-1 overflow-hidden shrink-0">
-                  {company.logo_url ? (
-                    <img src={company.logo_url} alt={company.name} className="w-full h-full object-cover rounded-xl" />
-                  ) : (
-                    <div className="w-full h-full bg-[#f1f4f6] flex items-center justify-center font-bold text-2xl text-[#0058be] rounded-xl">
-                      {company.name?.slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1 mb-1">
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-[#191c1e] tracking-tight">
-                      {company.name}
-                    </h1>
-                    {isVerified ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Verified Enterprise</span>
-                      </span>
-                    ) : isPending ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold border border-amber-200">
-                        <Clock className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Under Review</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200">
-                        <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Unverified</span>
-                      </span>
-                    )}
+          {/* Company Identity Section - Text Placed Below Banner for 100% Readability */}
+          <div className="px-6 pb-6 pt-0 relative bg-white">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+              {/* Logo Anchored at Banner Edge */}
+              <div className="-mt-12 sm:-mt-14 w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white border-4 border-white shadow-md p-1 overflow-hidden shrink-0 z-10">
+                {company.logo_url ? (
+                  <img
+                    src={resolvePhotoUrl(company.logo_url)}
+                    alt={company.name}
+                    className="w-full h-full object-cover rounded-xl"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-[#f1f4f6] flex items-center justify-center font-bold text-2xl text-[#0058be] rounded-xl">
+                    {company.name?.slice(0, 2).toUpperCase()}
                   </div>
-
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-[#71787e]">
-                    <span className="font-semibold text-[#0058be]">
-                      {company.industry?.value || 'Industry Not Set'}
-                    </span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5" />
-                      {[company.city, company.state, company.country].filter(Boolean).join(', ') || 'Headquarters Not Set'}
-                    </span>
-                  </div>
-                </div>
+                )}
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 pt-2 sm:pt-0 self-start sm:self-end">
+              {/* Action Buttons Aligned Cleanly */}
+              <div className="flex items-center gap-2 pt-2 sm:pt-4 self-start sm:self-auto">
                 {company.website_url && (
                   <a
                     href={company.website_url.startsWith('http') ? company.website_url : `https://${company.website_url}`}
@@ -165,6 +141,42 @@ export default function RecruiterCompanyProfilePage() {
                 </Link>
               </div>
             </div>
+
+            {/* Typography Content: Company Name, Status Badge, Meta strictly on white background */}
+            <div className="mt-4 space-y-2">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-[#191c1e] tracking-tight">
+                  {company.name}
+                </h1>
+                {isVerified ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Verified Enterprise</span>
+                  </span>
+                ) : isPending ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-xs font-semibold border border-amber-200">
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Under Review</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200">
+                    <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Unverified</span>
+                  </span>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-xs text-[#71787e]">
+                <span className="font-semibold text-[#0058be]">
+                  {company.industry?.value || 'Industry Not Set'}
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5" />
+                  {[company.city, company.state, company.country].filter(Boolean).join(', ') || 'Headquarters Not Set'}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -180,10 +192,15 @@ export default function RecruiterCompanyProfilePage() {
                   Edit
                 </Link>
               </div>
-              <div className="text-xs sm:text-sm text-[#41474d] leading-relaxed whitespace-pre-line">
-                {company.description ||
-                  'No description added yet. Click "Edit Profile" to write a compelling overview of your company mission and vision.'}
-              </div>
+              {company.description ? (
+                <div className="text-xs sm:text-sm text-[#41474d] leading-relaxed">
+                  <MarkdownContent content={company.description} />
+                </div>
+              ) : (
+                <div className="text-xs sm:text-sm text-[#71787e] italic leading-relaxed">
+                  No description added yet. Click "Edit Profile" to write a compelling overview of your company mission and vision.
+                </div>
+              )}
 
               {/* Talent Tracks / Hiring Areas */}
               {company.talent_tracks && company.talent_tracks.length > 0 && (

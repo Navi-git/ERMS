@@ -60,6 +60,11 @@ export default function App() {
           <Route path="/recruiter/company/profile" element={<RecruiterCompanyProfilePage />} />
           <Route path="/recruiter/company/edit" element={<EditCompanyProfilePage />} />
           <Route path="/recruiter/company/verify" element={<CompanyVerificationPage />} />
+
+          {/* Fallbacks for routes under development to keep users in their portal dashboard */}
+          <Route path="/recruiter/*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/candidate/*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/help" element={<Navigate to="/dashboard" replace />} />
         </Route>
 
         {/* Super Admin Portal Routes */}

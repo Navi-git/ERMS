@@ -18,6 +18,7 @@ import {
 import CandidateLayout from '../../layouts/CandidateLayout';
 import companyApi from '../../api/companyApi';
 import Pagination from '../../components/common/Pagination';
+import { resolvePhotoUrl } from '../../utils/imageUrl';
 
 export default function BrowseCompaniesPage() {
   const navigate = useNavigate();
@@ -161,7 +162,7 @@ export default function BrowseCompaniesPage() {
                 <div className="h-32 bg-linear-to-r from-slate-800 to-indigo-900 relative overflow-hidden">
                   {company.cover_image_url ? (
                     <img
-                      src={company.cover_image_url}
+                      src={resolvePhotoUrl(company.cover_image_url)}
                       alt={company.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
@@ -184,7 +185,11 @@ export default function BrowseCompaniesPage() {
                   <div className="flex items-start gap-3.5">
                     <div className="w-12 h-12 rounded-xl bg-white border border-[#e0e3e5] shadow-xs flex items-center justify-center font-bold text-lg text-[#0058be] shrink-0 overflow-hidden -mt-8 relative z-10">
                       {company.logo_url ? (
-                        <img src={company.logo_url} alt={company.name} className="w-full h-full object-cover" />
+                        <img
+                          src={resolvePhotoUrl(company.logo_url)}
+                          alt={company.name}
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
                         company.name?.slice(0, 2).toUpperCase()
                       )}
@@ -374,7 +379,11 @@ export default function BrowseCompaniesPage() {
                     <div className="flex items-start justify-between">
                       <div className="w-11 h-11 rounded-lg bg-[#f7f9fb] border border-[#e0e3e5] flex items-center justify-center font-bold text-sm text-[#0058be] overflow-hidden">
                         {company.logo_url ? (
-                          <img src={company.logo_url} alt={company.name} className="w-full h-full object-cover" />
+                          <img
+                            src={resolvePhotoUrl(company.logo_url)}
+                            alt={company.name}
+                            className="w-full h-full object-cover"
+                          />
                         ) : (
                           company.name?.slice(0, 2).toUpperCase()
                         )}

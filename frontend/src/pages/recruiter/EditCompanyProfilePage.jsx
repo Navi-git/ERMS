@@ -15,11 +15,15 @@ import {
   Globe,
   AlertCircle,
   CheckCircle2,
+  Eye,
+  FileEdit,
 } from 'lucide-react';
 import RecruiterLayout from '../../layouts/RecruiterLayout';
 import companyApi from '../../api/companyApi';
 import masterDataApi from '../../api/masterDataApi';
 import { useToast } from '../../context/ToastContext';
+import { resolvePhotoUrl } from '../../utils/imageUrl';
+import MarkdownContent from '../../components/common/MarkdownContent';
 import AddEditBenefitModal from '../../components/recruiter/AddEditBenefitModal';
 
 export default function EditCompanyProfilePage() {
@@ -38,6 +42,7 @@ export default function EditCompanyProfilePage() {
   const [companyId, setCompanyId] = useState(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [descTab, setDescTab] = useState('write'); // 'write' or 'preview'
   const [industryId, setIndustryId] = useState('');
   const [companySize, setCompanySize] = useState('Mid-size');
   const [foundedYear, setFoundedYear] = useState('');
@@ -50,9 +55,11 @@ export default function EditCompanyProfilePage() {
   const [postalCode, setPostalCode] = useState('');
   const [country, setCountry] = useState('United States');
 
-  // Branding
+  // Branding URLs & Instant Local Previews
   const [logoUrl, setLogoUrl] = useState('');
+  const [logoPreview, setLogoPreview] = useState('');
   const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [coverPreview, setCoverPreview] = useState('');
 
   // Talent tracks (Hiring areas)
   const [allTalentTracks, setAllTalentTracks] = useState([]);
@@ -113,10 +120,14 @@ export default function EditCompanyProfilePage() {
     loadData();
   }, []);
 
-  // Handle Logo Upload
+  // Handle Logo Upload with Instant Preview
   const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Instant local preview
+    const preview = URL.createObjectURL(file);
+    setLogoPreview(preview);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -133,10 +144,14 @@ export default function EditCompanyProfilePage() {
     }
   };
 
-  // Handle Cover Banner Upload
+  // Handle Cover Banner Upload with Instant Preview
   const handleCoverUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Instant local preview
+    const preview = URL.createObjectURL(file);
+    setCoverPreview(preview);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -160,16 +175,25 @@ export default function EditCompanyProfilePage() {
     );
   };
 
-  // Benefit Actions
+  // Benefit Actions with direct backend sync
   const handleSaveBenefit = async (data) => {
-    if (editingBenefit) {
-      const res = await companyApi.updateCompanyBenefit(editingBenefit.id, data);
-      setBenefits((prev) => prev.map((b) => (b.id === editingBenefit.id ? res.data : b)));
-      showToast('Benefit updated.', 'success');
-    } else {
-      const res = await companyApi.createCompanyBenefit(data);
-      setBenefits((prev) => [...prev, res.data]);
-      showToast('Benefit added.', 'success');
+    try {
+      if (editingBenefit) {
+        await companyApi.updateCompanyBenefit(editingBenefit.id, data);
+        showToast('Benefit updated successfully.', 'success');
+      } else {
+        await companyApi.createCompanyBenefit(data);
+        showToast('Benefit added successfully.', 'success');
+      }
+
+      // Re-fetch benefits from server to guarantee UI state matches DB exactly
+      const refreshed = await companyApi.getCompanyBenefits();
+      setBenefits(refreshed.data || []);
+      setBenefitModalOpen(false);
+      setEditingBenefit(null);
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to save benefit.', 'error');
+      throw err;
     }
   };
 
@@ -177,7 +201,8 @@ export default function EditCompanyProfilePage() {
     if (!window.confirm('Are you sure you want to remove this benefit?')) return;
     try {
       await companyApi.deleteCompanyBenefit(id);
-      setBenefits((prev) => prev.filter((b) => b.id !== id));
+      const refreshed = await companyApi.getCompanyBenefits();
+      setBenefits(refreshed.data || []);
       showToast('Benefit removed.', 'success');
     } catch (err) {
       showToast('Failed to delete benefit.', 'error');
@@ -280,8 +305,12 @@ export default function EditCompanyProfilePage() {
                   Company Cover Banner
                 </label>
                 <div className="relative h-44 rounded-xl bg-slate-900 overflow-hidden border border-[#e0e3e5] group">
-                  {coverImageUrl ? (
-                    <img src={coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
+                  {(coverPreview || coverImageUrl) ? (
+                    <img
+                      src={resolvePhotoUrl(coverPreview || coverImageUrl)}
+                      alt="Cover"
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <div className="w-full h-full bg-linear-to-r from-[#0058be] to-slate-900 opacity-90 flex items-center justify-center text-white/50 text-xs">
                       No cover image uploaded
@@ -312,8 +341,12 @@ export default function EditCompanyProfilePage() {
               {/* Logo Upload */}
               <div className="flex items-center gap-5 pt-2">
                 <div className="relative w-20 h-20 rounded-2xl bg-[#f7f9fb] border-2 border-dashed border-[#c3c7cb] overflow-hidden shrink-0 group flex items-center justify-center">
-                  {logoUrl ? (
-                    <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                  {(logoPreview || logoUrl) ? (
+                    <img
+                      src={resolvePhotoUrl(logoPreview || logoUrl)}
+                      alt="Logo"
+                      className="w-full h-full object-cover"
+                    />
                   ) : (
                     <Building2 className="w-8 h-8 text-[#71787e] opacity-40" />
                   )}
@@ -466,21 +499,64 @@ export default function EditCompanyProfilePage() {
               </div>
             </div>
 
-            {/* About Section Card (Figma Page 6) */}
-            <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-xs space-y-2">
-              <h2 className="text-sm font-bold text-[#191c1e] uppercase tracking-wider">
-                About Section
-              </h2>
-              <p className="text-[11px] text-[#71787e]">
-                Markdown formatting is supported. Provide details regarding your company's mission, engineering culture, and values.
-              </p>
-              <textarea
-                rows={6}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="We are Acme Corp, leading the charge in innovative solutions..."
-                className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be] leading-relaxed"
-              />
+            {/* About Section Card (Figma Page 6 with Markdown Support) */}
+            <div className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-[#f1f4f6] pb-2">
+                <div>
+                  <h2 className="text-sm font-bold text-[#191c1e] uppercase tracking-wider">
+                    About Section
+                  </h2>
+                  <p className="text-[11px] text-[#71787e]">
+                    Markdown formatting is supported (headers, bold, lists, quotes).
+                  </p>
+                </div>
+
+                {/* Write / Preview Tab switcher */}
+                <div className="flex items-center gap-1 bg-[#f1f4f6] p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setDescTab('write')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                      descTab === 'write'
+                        ? 'bg-white text-[#0058be] shadow-xs'
+                        : 'text-[#71787e] hover:text-[#191c1e]'
+                    }`}
+                  >
+                    <FileEdit className="w-3.5 h-3.5" />
+                    <span>Write</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDescTab('preview')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                      descTab === 'preview'
+                        ? 'bg-white text-[#0058be] shadow-xs'
+                        : 'text-[#71787e] hover:text-[#191c1e]'
+                    }`}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Preview</span>
+                  </button>
+                </div>
+              </div>
+
+              {descTab === 'write' ? (
+                <textarea
+                  rows={7}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="### Our Mission&#10;We build next-generation applications with a focus on speed and scale.&#10;&#10;**Our Values**&#10;- Fast execution&#10;- Continuous innovation&#10;- Transparent teamwork"
+                  className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be] leading-relaxed font-mono"
+                />
+              ) : (
+                <div className="p-4 rounded-xl border border-[#e0e3e5] bg-[#f7f9fb] min-h-[140px] text-xs text-[#191c1e]">
+                  {description ? (
+                    <MarkdownContent content={description} />
+                  ) : (
+                    <span className="text-[#71787e] italic">No description written yet. Switch to "Write" to add company information.</span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -626,18 +702,18 @@ export default function EditCompanyProfilePage() {
             </div>
           </div>
         </div>
-
-        {/* Modal for Benefit creation */}
-        <AddEditBenefitModal
-          isOpen={benefitModalOpen}
-          onClose={() => {
-            setBenefitModalOpen(false);
-            setEditingBenefit(null);
-          }}
-          onSave={handleSaveBenefit}
-          benefit={editingBenefit}
-        />
       </form>
+
+      {/* Modal for Benefit creation - Moved outside form to prevent event bubbling conflicts */}
+      <AddEditBenefitModal
+        isOpen={benefitModalOpen}
+        onClose={() => {
+          setBenefitModalOpen(false);
+          setEditingBenefit(null);
+        }}
+        onSave={handleSaveBenefit}
+        benefit={editingBenefit}
+      />
     </RecruiterLayout>
   );
 }
