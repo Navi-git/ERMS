@@ -159,7 +159,15 @@ export default function PublicCompanyProfilePage() {
               )}
               <button
                 type="button"
-                onClick={() => setReviewModalOpen(true)}
+                onClick={() => {
+                  if (!user) {
+                    navigate('/login');
+                  } else if (user.role !== 'candidate') {
+                    showToast('Only candidate accounts can submit company reviews.', 'info');
+                  } else {
+                    setWriteReviewModalOpen(true);
+                  }
+                }}
                 className="px-4 py-2 bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <Star className="w-3.5 h-3.5" />

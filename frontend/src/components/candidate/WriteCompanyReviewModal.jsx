@@ -93,22 +93,17 @@ export default function WriteCompanyReviewModal({ isOpen, onClose, company, onSu
             </div>
           )}
 
-          {/* Eligible Reviewer Callout (Figma Page 3) */}
-          <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 text-xs text-emerald-950">
-            <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+          {/* Eligible Reviewer Callout (Figma Page 3 & Module 7 Policy) */}
+          <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3 text-xs text-blue-950">
+            <ShieldCheck className="w-5 h-5 text-[#0058be] shrink-0 mt-0.5" />
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-[11px] uppercase tracking-wider text-emerald-800">
-                  Eligible Reviewer
-                </span>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-white/70 px-1.5 py-0.5 rounded-md">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                  <span>Verified Application Record</span>
+                <span className="font-extrabold text-[11px] uppercase tracking-wider text-[#0058be]">
+                  Verified Candidate Review Policy
                 </span>
               </div>
-              <p className="text-[11px] text-emerald-900 leading-relaxed">
-                Candidate eligibility confirmed for <strong>{company?.name}</strong>. Your feedback provides
-                authentic insights for future applicants.
+              <p className="text-[11px] text-[#41474d] leading-relaxed">
+                To guarantee authenticity, reviews can only be submitted by candidates who have <strong>received an official job offer</strong> or have been <strong>hired</strong> by <strong>{company?.name}</strong>.
               </p>
             </div>
           </div>

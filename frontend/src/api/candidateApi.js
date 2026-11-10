@@ -47,3 +47,5 @@ export const candidateApi = {
   searchCandidates: (params) => axiosClient.get('/recruiter/candidates/', { params }),
 };
 
+export default candidateApi;
+
