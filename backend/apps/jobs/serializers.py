@@ -196,6 +196,8 @@ class RecruiterJobDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_applications_count(self, obj):
+        if hasattr(obj, "applications"):
+            return obj.applications.count()
         return 0
 
     def get_completion_score(self, obj):
@@ -248,6 +250,8 @@ class RecruiterJobListSerializer(serializers.ModelSerializer):
         ]
 
     def get_applications_count(self, obj):
+        if hasattr(obj, "applications"):
+            return obj.applications.count()
         return 0
 
     def get_completion_score(self, obj):
@@ -349,6 +353,7 @@ class PublicJobDetailSerializer(serializers.ModelSerializer):
     skills = JobSkillSerializer(many=True, read_only=True)
     benefits = JobBenefitSerializer(many=True, read_only=True)
     is_saved = serializers.SerializerMethodField()
+    my_application = serializers.SerializerMethodField()
     is_expired = serializers.BooleanField(read_only=True)
     views_count = serializers.SerializerMethodField()
     applicants_count = serializers.SerializerMethodField()
@@ -381,6 +386,7 @@ class PublicJobDetailSerializer(serializers.ModelSerializer):
             "skills",
             "benefits",
             "is_saved",
+            "my_application",
             "views_count",
             "applicants_count",
         ]
@@ -394,12 +400,27 @@ class PublicJobDetailSerializer(serializers.ModelSerializer):
             job=obj,
         ).exists()
 
+    def get_my_application(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user or not request.user.is_authenticated:
+            return None
+        from apps.applications.models import Application
+        app = Application.objects.filter(job=obj, candidate__user=request.user).first()
+        if not app:
+            return None
+        return {
+            "id": app.id,
+            "status": app.application_status,
+            "applied_at": app.applied_at,
+        }
+
     def get_views_count(self, obj):
         from apps.jobs.models import ViewEvent
         return ViewEvent.objects.filter(entity_type="job", entity_id=obj.id).count()
 
     def get_applicants_count(self, obj):
-        return 0
+        from apps.applications.models import Application
+        return Application.objects.filter(job=obj).count()
 
 
 class SavedJobSerializer(serializers.ModelSerializer):

@@ -150,9 +150,11 @@ class CandidateCompanyReviewCreateView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        from django.db import models
         from shared.constants.roles import Role
         from apps.candidates.services.profile_service import get_or_create_profile
-        from .models import CompanyReview, ReviewModerationStatus
+        from apps.applications.models import Application
+        from .models import CompanyReview, ReviewModerationStatus, ReviewEligibilityReason
         from .serializers import CreateCompanyReviewSerializer, PublicCompanyReviewSerializer
 
         if getattr(request.user, "role", "") != Role.CANDIDATE:
@@ -166,19 +168,41 @@ class CandidateCompanyReviewCreateView(APIView):
         except Company.DoesNotExist:
             return Response({"detail": "Company not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        profile = get_or_create_profile(request.user)
+
+        # Enforce offer / hire eligibility (Module 7 Decision)
+        eligible_app = (
+            Application.objects.filter(candidate=profile, job__company=company)
+            .filter(
+                models.Q(hired_at__isnull=False)
+                | models.Q(offer_extended_at__isnull=False)
+                | models.Q(application_status__in=["offer_sent", "accepted"])
+            )
+            .first()
+        )
+        if not eligible_app:
+            return Response(
+                {
+                    "detail": "Only candidates who have received an offer letter or have been hired by this company can write a review."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = CreateCompanyReviewSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        profile = get_or_create_profile(request.user)
+        is_hired = bool(eligible_app.hired_at or eligible_app.application_status == "accepted")
+        eligibility = ReviewEligibilityReason.HIRED if is_hired else ReviewEligibilityReason.OFFER_RECEIVED
 
         review = CompanyReview.objects.create(
             company=company,
             candidate=profile,
+            application_id=eligible_app.id,
             rating=serializer.validated_data["rating"],
             review_title=serializer.validated_data["review_title"],
             review_text=serializer.validated_data["review_text"],
             is_anonymous=serializer.validated_data.get("is_anonymous", False),
-            eligibility_reason=serializer.validated_data.get("eligibility_reason", "OFFER_RECEIVED"),
+            eligibility_reason=eligibility,
             moderation_status=ReviewModerationStatus.APPROVED,
         )
 

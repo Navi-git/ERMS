@@ -21,7 +21,8 @@ import {
 } from 'lucide-react';
 import Navbar from '../../components/Navbar';
 import FooterSection from '../../components/FooterSection';
-import ApplyJobInfoModal from '../../components/candidate/ApplyJobInfoModal';
+import ApplyJobMultiStepModal from '../../components/candidate/ApplyJobMultiStepModal';
+import AppliedSuccessModal from '../../components/candidate/AppliedSuccessModal';
 import ReportJobModal from '../../components/candidate/ReportJobModal';
 import jobApi from '../../api/jobApi';
 import { useToast } from '../../context/ToastContext';
@@ -37,6 +38,8 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
   const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [submittedApplication, setSubmittedApplication] = useState(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
 
   useEffect(() => {
@@ -186,13 +189,33 @@ export default function JobDetailPage() {
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3 w-full md:w-auto shrink-0 pt-4 md:pt-0 border-t md:border-0 border-[#f1f4f6]">
-              <button
-                type="button"
-                onClick={() => setApplyModalOpen(true)}
-                className="flex-1 md:flex-initial px-6 py-3 rounded-2xl font-bold text-sm text-white bg-[#0058be] hover:bg-[#004ca5] shadow-xs transition-colors cursor-pointer text-center"
-              >
-                Apply Now
-              </button>
+              {job.my_application ? (
+                <Link
+                  to={`/candidate/applications/${job.my_application.id}`}
+                  className="flex-1 md:flex-initial px-6 py-3 rounded-2xl font-bold text-sm text-emerald-800 bg-emerald-100 hover:bg-emerald-200 shadow-xs transition-colors cursor-pointer text-center flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                  <span>Applied ({job.my_application.status.toUpperCase()})</span>
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      navigate('/login');
+                      return;
+                    }
+                    if (user?.role !== 'candidate') {
+                      showToast('Only candidates can submit job applications.', 'info');
+                      return;
+                    }
+                    setApplyModalOpen(true);
+                  }}
+                  className="flex-1 md:flex-initial px-6 py-3 rounded-2xl font-bold text-sm text-white bg-[#0058be] hover:bg-[#004ca5] shadow-xs transition-colors cursor-pointer text-center"
+                >
+                  Apply Now
+                </button>
+              )}
 
               <button
                 type="button"
@@ -391,12 +414,25 @@ export default function JobDetailPage() {
       </main>
 
       {/* Modals */}
-      <ApplyJobInfoModal
+      <ApplyJobMultiStepModal
         isOpen={applyModalOpen}
         onClose={() => setApplyModalOpen(false)}
         job={job}
-        isSaved={isSaved}
-        onSaveToggle={(saved) => setIsSaved(saved)}
+        onSuccess={(app) => {
+          setSubmittedApplication(app);
+          setJob((prev) => ({
+            ...prev,
+            my_application: { id: app.id, status: app.application_status },
+          }));
+          setSuccessModalOpen(true);
+        }}
+      />
+
+      <AppliedSuccessModal
+        isOpen={successModalOpen}
+        onClose={() => setSuccessModalOpen(false)}
+        job={job}
+        application={submittedApplication}
       />
 
       <ReportJobModal

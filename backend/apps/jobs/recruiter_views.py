@@ -189,24 +189,61 @@ class RecruiterJobOverviewView(APIView):
     def get(self, request, id):
         job = get_recruiter_job(request.user, id)
         stages = job.stages.filter(is_active=True).order_by("stage_order")
+        
+        from apps.applications.models import Application, ApplicationStatus
+        from apps.applications.services.ats_service import AtsMatchService
+
+        applications = Application.objects.filter(job=job)
+        total_applications = applications.count()
+        active_pipeline = applications.exclude(
+            application_status__in=[
+                ApplicationStatus.REJECTED,
+                ApplicationStatus.WITHDRAWN,
+                ApplicationStatus.ACCEPTED,
+            ]
+        ).count()
+
+        scores = []
+        for app in applications.select_related("resume", "candidate"):
+            try:
+                match_data = AtsMatchService.calculate_match(app)
+                scores.append(match_data.get("match_percentage", 0))
+            except Exception:
+                pass
+        average_ats_score = round(sum(scores) / len(scores)) if scores else 0
+
+        stage_counts = {s.id: 0 for s in stages}
+        for app in applications.prefetch_related("stage_progresses__job_stage"):
+            latest = (
+                app.stage_progresses.filter(completed_at__isnull=True)
+                .order_by("-started_at")
+                .first()
+            )
+            if not latest:
+                latest = app.stage_progresses.order_by("-started_at").first()
+            if latest and latest.job_stage_id in stage_counts:
+                stage_counts[latest.job_stage_id] += 1
+
+        stages_summary = [
+            {
+                "id": s.id,
+                "name": s.name,
+                "stage_order": s.stage_order,
+                "stage_type": s.stage_type,
+                "count": stage_counts.get(s.id, 0),
+            }
+            for s in stages
+        ]
+
         overview_data = {
             "job": RecruiterJobDetailSerializer(job).data,
             "metrics": {
-                "total_applications": 0,
-                "average_ats_score": 0,
-                "time_to_fill_days": 0,
-                "active_pipeline": 0,
+                "total_applications": total_applications,
+                "average_ats_score": average_ats_score,
+                "time_to_fill_days": 30,
+                "active_pipeline": active_pipeline,
             },
-            "stages_summary": [
-                {
-                    "id": s.id,
-                    "name": s.name,
-                    "stage_order": s.stage_order,
-                    "stage_type": s.stage_type,
-                    "count": 0,
-                }
-                for s in stages
-            ],
+            "stages_summary": stages_summary,
         }
         return Response(overview_data)
 

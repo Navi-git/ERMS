@@ -10,6 +10,8 @@ import DashboardPage from './pages/DashboardPage';
 import SettingsPage from './pages/SettingsPage';
 import CandidateProfilePage from './pages/candidate/CandidateProfilePage';
 import ResumeManagementPage from './pages/candidate/ResumeManagementPage';
+import CandidateApplicationsPage from './pages/candidate/CandidateApplicationsPage';
+import CandidateApplicationDetailPage from './pages/candidate/CandidateApplicationDetailPage';
 import AdminLoginPage from './pages/admin/AdminLoginPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminUserManagementPage from './pages/admin/AdminUserManagementPage';
@@ -33,6 +35,9 @@ import RecruiterJobPostingsPage from './pages/recruiter/RecruiterJobPostingsPage
 import RecruiterCreateJobPage from './pages/recruiter/RecruiterCreateJobPage';
 import RecruiterEditJobPage from './pages/recruiter/RecruiterEditJobPage';
 import RecruiterJobOverviewPage from './pages/recruiter/RecruiterJobOverviewPage';
+import RecruiterJobPipelinePage from './pages/recruiter/RecruiterJobPipelinePage';
+import RecruiterAllApplicantsPage from './pages/recruiter/RecruiterAllApplicantsPage';
+import RecruiterApplicationDetailPage from './pages/recruiter/RecruiterApplicationDetailPage';
 import AdminJobsManagementPage from './pages/admin/AdminJobsManagementPage';
 import AdminJobDetailPage from './pages/admin/AdminJobDetailPage';
 import { ToastProvider } from './context/ToastContext';
@@ -64,7 +69,9 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/candidate/profile" element={<CandidateProfilePage />} />
           <Route path="/candidate/resumes" element={<ResumeManagementPage />} />
-          <Route path="/candidate/applications" element={<Navigate to="/dashboard" replace />} />
+          {/* Candidate Applications */}
+          <Route path="/candidate/applications" element={<CandidateApplicationsPage />} />
+          <Route path="/candidate/applications/:id" element={<CandidateApplicationDetailPage />} />
           <Route path="/candidate/saved-jobs" element={<SavedJobsPage />} />
 
           {/* Recruiter Company Management & Verification */}
@@ -77,6 +84,11 @@ export default function App() {
           <Route path="/recruiter/jobs/new" element={<RecruiterCreateJobPage />} />
           <Route path="/recruiter/jobs/:id/edit" element={<RecruiterEditJobPage />} />
           <Route path="/recruiter/jobs/:id/overview" element={<RecruiterJobOverviewPage />} />
+          <Route path="/recruiter/jobs/:id/pipeline" element={<RecruiterJobPipelinePage />} />
+
+          {/* Recruiter Applications & Screening */}
+          <Route path="/recruiter/applicants" element={<RecruiterAllApplicantsPage />} />
+          <Route path="/recruiter/applications/:id" element={<RecruiterApplicationDetailPage />} />
 
           {/* Fallbacks for routes under development to keep users in their portal dashboard */}
           <Route path="/recruiter/*" element={<Navigate to="/dashboard" replace />} />

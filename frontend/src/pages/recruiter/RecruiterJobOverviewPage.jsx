@@ -105,7 +105,7 @@ export default function RecruiterJobOverviewPage() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 w-full md:w-auto shrink-0">
+            <div className="flex items-center gap-3 w-full md:w-auto shrink-0 flex-wrap">
               <Link
                 to={`/jobs/${job.id}`}
                 target="_blank"
@@ -113,6 +113,14 @@ export default function RecruiterJobOverviewPage() {
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>View Listing</span>
+              </Link>
+
+              <Link
+                to={`/recruiter/jobs/${job.id}/pipeline`}
+                className="flex-1 md:flex-initial px-4 py-2.5 rounded-xl border border-[#0058be] font-bold text-xs text-[#0058be] hover:bg-[#e8f0fe] transition-colors flex items-center justify-center gap-1.5"
+              >
+                <GitCommit className="w-3.5 h-3.5" />
+                <span>Pipeline Board</span>
               </Link>
 
               <Link
@@ -128,17 +136,20 @@ export default function RecruiterJobOverviewPage() {
 
         {/* 4 Top Metric Cards (Figma Page 10) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-2xl p-5 border border-[#e0e3e5] shadow-xs">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#71787e]">
+          <Link
+            to={`/recruiter/jobs/${job.id}/pipeline`}
+            className="bg-white rounded-2xl p-5 border border-[#e0e3e5] shadow-xs hover:border-[#0058be] transition-colors group cursor-pointer block"
+          >
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#71787e] group-hover:text-[#0058be]">
               Total Applications
             </span>
             <div className="text-2xl font-black text-[#191c1e] mt-1">
               {metrics.total_applications || 0}
             </div>
             <div className="text-[11px] text-[#0058be] font-medium mt-0.5">
-              Available in Module 7
+              View pipeline &rarr;
             </div>
-          </div>
+          </Link>
 
           <div className="bg-white rounded-2xl p-5 border border-[#e0e3e5] shadow-xs">
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#71787e]">
@@ -182,19 +193,23 @@ export default function RecruiterJobOverviewPage() {
                   <GitCommit className="w-5 h-5 text-[#0058be]" />
                   <h3 className="font-bold text-base text-[#191c1e]">Pipeline Summary</h3>
                 </div>
-                <span className="text-xs text-[#71787e]">
-                  {stagesSummary.length} configured stages
-                </span>
+                <Link
+                  to={`/recruiter/jobs/${job.id}/pipeline`}
+                  className="text-xs font-bold text-[#0058be] hover:underline"
+                >
+                  Open Board &rarr;
+                </Link>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {stagesSummary.map((st) => (
-                  <div
+                  <Link
                     key={st.id}
-                    className="p-3.5 rounded-2xl bg-[#f7f9fb] border border-[#e0e3e5] space-y-1.5"
+                    to={`/recruiter/jobs/${job.id}/pipeline`}
+                    className="p-3.5 rounded-2xl bg-[#f7f9fb] border border-[#e0e3e5] hover:border-[#0058be] transition-colors space-y-1.5 block cursor-pointer group"
                   >
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-bold text-[#0058be]">Stage {st.stage_order}</span>
+                      <span className="font-bold text-[#0058be] group-hover:underline">Stage {st.stage_order}</span>
                       <span className="text-[10px] text-[#71787e] capitalize">{st.stage_type}</span>
                     </div>
                     <div className="font-bold text-sm text-[#191c1e] line-clamp-1">
@@ -203,22 +218,40 @@ export default function RecruiterJobOverviewPage() {
                     <div className="text-xs font-semibold text-[#71787e]">
                       {st.count || 0} candidates
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
 
             {/* Applicant Pipeline Preview Callout */}
-            <div className="bg-white rounded-3xl p-8 border border-[#e0e3e5] text-center space-y-3 shadow-xs">
+            <div className="bg-white rounded-3xl p-8 border border-[#e0e3e5] text-center space-y-4 shadow-xs">
               <div className="w-12 h-12 rounded-2xl bg-[#e8f0fe] text-[#0058be] flex items-center justify-center mx-auto">
                 <Users className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-base text-[#191c1e]">
-                Candidates Pipeline Kanban Board
-              </h3>
-              <p className="text-xs text-[#71787e] max-w-md mx-auto leading-relaxed">
-                Direct resume evaluation, ATS match scoring, drag-and-drop Kanban stage advancement, and interview scorecards will be active in <span className="font-semibold text-[#191c1e]">Module: Applications & Screening</span>.
-              </p>
+              <div className="space-y-1">
+                <h3 className="font-bold text-base text-[#191c1e]">
+                  Candidates Pipeline Kanban Board
+                </h3>
+                <p className="text-xs text-[#71787e] max-w-md mx-auto leading-relaxed">
+                  Evaluate resumes with real-time ATS match scoring, drag candidates across interview stages, add internal recruiter notes, and review submitted materials.
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3 pt-1">
+                <Link
+                  to={`/recruiter/jobs/${job.id}/pipeline`}
+                  className="px-5 py-2.5 rounded-xl font-bold text-xs text-white bg-[#0058be] hover:bg-[#004ca5] shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <GitCommit className="w-3.5 h-3.5" />
+                  <span>Open Pipeline Board</span>
+                </Link>
+                <Link
+                  to={`/recruiter/applicants?job_id=${job.id}`}
+                  className="px-5 py-2.5 rounded-xl border border-[#c1c7ce] font-semibold text-xs text-[#41474d] hover:bg-[#f1f4f6] transition-colors flex items-center gap-1.5"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>View All Candidates</span>
+                </Link>
+              </div>
             </div>
           </div>
 
