@@ -24,22 +24,18 @@ DONE: tests passed (102/102, verified by owner)
 | 6 | Recruiter Portal Frontend (Job Postings, Drafts with readiness indicators, Post/Edit Job Wizard, Pipeline Stages Modal, Custom Benefits Modal, Overview) | DONE: Vite production build passed |
 | 7 | Super Admin Portal Frontend (Job Directory with tabs & metrics, Detail Inspection, Moderation Actions, Internal Notes) | DONE: Vite production build passed |
 
-## Next task
-Module 7: Applications & Screening (Application submission, applicant tracking pipeline Kanban, resume evaluation, ATS match scoring, interview scheduling).
-- ERD change approved: `companies.industry_id` nullable (required again at verification submission).
-- Recruiter `users.full_name` defaults to company name.
-- Block = `suspended_at/suspended_by`; soft delete = `is_active=false`. No schema change.
-- OTP: row in `otp_verifications` + counters in Redis (in-memory cache when REDIS_URL is unset).
-- Assumption: registration requires `accept_terms: true` (stores terms/privacy version "1.0").
-- ERD omits `increment` on some ids (master_data_items, offers...); auto-increment used.
+## Module 7: Applications & Screening (Backend & Frontend)
 
-- Lockout: 5 wrong passwords -> locked 15 min (user_security). Settings: LOGIN_MAX_FAILED_ATTEMPTS, LOGIN_LOCKOUT_MINUTES.
-- Limitation: ERD has no company-members table, so only the recruiter in companies.admin_user sees a company.
-
-- Password reset also unlocks the account, blacklists refresh tokens, and rejects older access tokens (iat < password_last_changed_at).
-
-- Google: auto-link by email; new Google accounts are candidates only; unverified password accounts lose their password when linked (pre-hijack defence).
-- Pending ERD approval: UNIQUE(provider, provider_user_id) on auth_identities (prevents duplicate links under concurrency).
+| Step | Scope | Status |
+|---|---|---|
+| 1 | ERD models (`applications`, `application_stage_progress`, `application_materials`, `application_notes`) | DONE: migrated to PostgreSQL with unique constraint `(job, candidate)` & indexes |
+| 2 | Dynamic ATS Match & Semantic Alignment Service (`AtsMatchService`) | DONE: on-the-fly match percentage, matching/missing skills calculated without storing score column |
+| 3 | State Transition Service & Fixed Matrix (`ApplicationTransitionService`) | DONE: atomic apply, stage moves, shortlist, reject with reason, withdraw, and hire |
+| 4 | Company Review Gating | DONE: verified candidate rule enforced (only candidates with `hired_at`, `offer_extended_at`, or status `offer_sent`/`accepted` can submit reviews) |
+| 5 | Candidate Application API (`/candidate/applications/`, `/jobs/<id>/apply/`) | DONE: multi-step apply without candidate ATS score preview, progress timeline, materials upload, withdraw |
+| 6 | Recruiter Applications & Pipeline API (`/recruiter/applications/`, `/recruiter/jobs/<id>/applications/`) | DONE: live dossier, ATS breakdown, stage advancement, team notes CRUD, reject reason modal |
+| 7 | Candidate Portal Frontend (Apply Modal, Submitted Success Modal, My Applications Hub, Application Detail View) | DONE: Vite production build passed |
+| 8 | Recruiter Portal Frontend (Job Pipeline Kanban Board, All Applicants Hub, Screening & Candidate Dossier, Resume Viewer Modal, Rejection Reason Modal) | DONE: Vite production build passed |
 
 ## Next task
-Run `pytest -v` and report. Then live smoke test of the whole backend, then frontend (needs Figma).
+Module 8: Interviews & Scheduling (Interview scheduling, panel assignment, candidate self-scheduling, scorecard evaluation, calendar integration).
