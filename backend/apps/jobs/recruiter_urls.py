@@ -15,10 +15,12 @@ from apps.jobs.recruiter_views import (
     RecruiterJobStagesListView,
     RecruiterJobStagesReorderView,
 )
+from apps.applications.views import RecruiterJobApplicantsView
 
 urlpatterns = [
     path("", RecruiterJobListCreateView.as_view(), name="recruiter-job-list-create"),
     path("<int:id>/", RecruiterJobDetailView.as_view(), name="recruiter-job-detail"),
+    path("<int:job_id>/applications/", RecruiterJobApplicantsView.as_view(), name="recruiter-job-applications"),
     path("<int:id>/publish/", RecruiterJobPublishView.as_view(), name="recruiter-job-publish"),
     path("<int:id>/hold/", RecruiterJobHoldView.as_view(), name="recruiter-job-hold"),
     path("<int:id>/resume/", RecruiterJobResumeView.as_view(), name="recruiter-job-resume"),
