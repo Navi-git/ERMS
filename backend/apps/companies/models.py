@@ -11,10 +11,12 @@ from django.db import models
 
 
 class CompanyVerificationStatus(models.TextChoices):
+    DRAFT = "DRAFT", "Draft"
     PENDING = "PENDING", "Pending"
     UNDER_REVIEW = "UNDER_REVIEW", "Under Review"
     APPROVED = "APPROVED", "Approved"
     REJECTED = "REJECTED", "Rejected"
+    REVERIFICATION = "REVERIFICATION", "Reverification"
 
 
 class RiskLevel(models.TextChoices):
@@ -83,7 +85,7 @@ class Company(models.Model):
     verification_status = models.CharField(
         max_length=30,
         choices=CompanyVerificationStatus.choices,
-        default=CompanyVerificationStatus.PENDING,
+        default=CompanyVerificationStatus.DRAFT,
     )
     suspended_at = models.DateTimeField(null=True, blank=True)
     suspended_by = models.ForeignKey(
@@ -171,7 +173,7 @@ class CompanyVerification(models.Model):
     status = models.CharField(
         max_length=30,
         choices=CompanyVerificationStatus.choices,
-        default=CompanyVerificationStatus.PENDING,
+        default=CompanyVerificationStatus.DRAFT,
     )
     risk_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     risk_level = models.CharField(
@@ -187,7 +189,7 @@ class CompanyVerification(models.Model):
     internal_notes = models.TextField(null=True, blank=True)
     rejection_reason = models.TextField(null=True, blank=True)
 
-    submitted_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:

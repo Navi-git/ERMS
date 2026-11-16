@@ -57,7 +57,10 @@ class ApplicationTransitionService:
             )
 
         if (
-            job.company.verification_status != CompanyVerificationStatus.APPROVED
+            job.company.verification_status not in [
+                CompanyVerificationStatus.APPROVED,
+                CompanyVerificationStatus.REVERIFICATION,
+            ]
             or job.company.suspended_at
         ):
             raise ApiError(
@@ -191,34 +194,63 @@ class ApplicationTransitionService:
                 status_code=400,
             )
 
-        # Close current open stage progress
-        current_progress = (
+        now = timezone.now()
+
+        # 1. Close all currently open stage progresses
+        ApplicationStageProgress.objects.filter(
+            application=application,
+            completed_at__isnull=True,
+        ).update(completed_at=now)
+
+        # 2. When moving/degrading to a stage, any progress records for stages
+        # strictly UPFRONT (ahead) of target_stage must NOT remain marked completed.
+        # Remove them so the candidate's forward stages are strictly "pending".
+        ApplicationStageProgress.objects.filter(
+            application=application,
+            job_stage__stage_order__gt=target_stage.stage_order,
+        ).delete()
+
+        # 3. Ensure all stages behind target_stage have completed progress entries
+        previous_stages = (
+            JobStage.objects.filter(
+                job=application.job,
+                stage_order__lt=target_stage.stage_order,
+            )
+            .order_by("stage_order")
+        )
+        existing_prev_stage_ids = set(
             ApplicationStageProgress.objects.filter(
                 application=application,
-                completed_at__isnull=True,
-            )
-            .order_by("-started_at")
-            .first()
+                job_stage__stage_order__lt=target_stage.stage_order,
+            ).values_list("job_stage_id", flat=True)
         )
-        if current_progress:
-            current_progress.completed_at = timezone.now()
-            current_progress.save(update_fields=["completed_at"])
+        for prev_stage in previous_stages:
+            if prev_stage.id not in existing_prev_stage_ids:
+                ApplicationStageProgress.objects.create(
+                    application=application,
+                    job_stage=prev_stage,
+                    started_at=now,
+                    completed_at=now,
+                    changed_by=changed_by,
+                    notes=f"Auto-completed stage prior to Stage {target_stage.stage_order}.",
+                )
 
-        # Create new stage progress
+        # 4. Create new active stage progress for target_stage (status: in progress)
         new_progress = ApplicationStageProgress.objects.create(
             application=application,
             job_stage=target_stage,
-            started_at=timezone.now(),
+            started_at=now,
+            completed_at=None,
             changed_by=changed_by,
             notes=notes,
         )
 
-        # Dynamic status updates based on stage type
+        # 5. Dynamic application_status updates based on target stage type (forward & backward)
         status_updates = []
-        if (
-            target_stage.stage_type == StageType.SCREENING
-            and application.application_status == ApplicationStatus.APPLIED
-        ):
+        if target_stage.stage_type == StageType.APPLIED:
+            application.application_status = ApplicationStatus.APPLIED
+            status_updates.append("application_status")
+        elif target_stage.stage_type in [StageType.SCREENING, StageType.CUSTOM]:
             application.application_status = ApplicationStatus.REVIEWING
             status_updates.append("application_status")
         elif target_stage.stage_type == StageType.INTERVIEW:
@@ -227,18 +259,36 @@ class ApplicationTransitionService:
         elif target_stage.stage_type == StageType.OFFER:
             application.application_status = ApplicationStatus.OFFER_SENT
             if not application.offer_extended_at:
-                application.offer_extended_at = timezone.now()
+                application.offer_extended_at = now
                 status_updates.append("offer_extended_at")
             status_updates.append("application_status")
         elif target_stage.stage_type == StageType.HIRED:
             application.application_status = ApplicationStatus.ACCEPTED
             if not application.hired_at:
-                application.hired_at = timezone.now()
+                application.hired_at = now
                 status_updates.append("hired_at")
             status_updates.append("application_status")
 
+        # If degraded to a stage before Offer, clear offer_extended_at
+        offer_stage = JobStage.objects.filter(job=application.job, stage_type=StageType.OFFER).first()
+        if offer_stage and target_stage.stage_order < offer_stage.stage_order and application.offer_extended_at:
+            application.offer_extended_at = None
+            status_updates.append("offer_extended_at")
+
+        # If degraded to a stage before Hired, clear hired_at
+        hired_stage = JobStage.objects.filter(job=application.job, stage_type=StageType.HIRED).first()
+        if hired_stage and target_stage.stage_order < hired_stage.stage_order and application.hired_at:
+            application.hired_at = None
+            status_updates.append("hired_at")
+
+        # If application was previously rejected and moved to an active stage, reset rejection fields
+        if application.rejected_at:
+            application.rejected_at = None
+            application.rejection_reason = ""
+            status_updates.extend(["rejected_at", "rejection_reason"])
+
         if status_updates:
-            application.updated_at = timezone.now()
+            application.updated_at = now
             status_updates.append("updated_at")
             application.save(update_fields=status_updates)
 

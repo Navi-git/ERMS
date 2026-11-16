@@ -23,6 +23,7 @@ import companyApi from '../../api/companyApi';
 import { useToast } from '../../context/ToastContext';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
 import MarkdownContent from '../../components/common/MarkdownContent';
+import { formatSalaryRange } from '../../utils/currency';
 
 export default function RecruiterCompanyProfilePage() {
   const navigate = useNavigate();
@@ -78,8 +79,11 @@ export default function RecruiterCompanyProfilePage() {
     );
   }
 
-  const isVerified = company.verification_status === 'APPROVED';
+  const isApproved = company.verification_status === 'APPROVED';
+  const isReverification = company.verification_status === 'REVERIFICATION';
+  const isVerified = isApproved || isReverification;
   const isPending = company.verification_status === 'PENDING' || company.verification_status === 'UNDER_REVIEW';
+  const isDraft = company.verification_status === 'DRAFT';
 
   return (
     <RecruiterLayout>
@@ -119,7 +123,7 @@ export default function RecruiterCompanyProfilePage() {
               </div>
 
               {/* Action Buttons Aligned Cleanly */}
-              <div className="flex items-center gap-2 pt-2 sm:pt-4 self-start sm:self-auto">
+              <div className="flex flex-wrap items-center gap-2 pt-2 sm:pt-4 self-start sm:self-auto">
                 {company.website_url && (
                   <a
                     href={company.website_url.startsWith('http') ? company.website_url : `https://${company.website_url}`}
@@ -132,6 +136,13 @@ export default function RecruiterCompanyProfilePage() {
                     <ExternalLink className="w-3 h-3 text-[#71787e]" />
                   </a>
                 )}
+                <Link
+                  to="/recruiter/company/verify"
+                  className="px-4 py-2 bg-white border border-[#c3c7cb] hover:bg-slate-50 text-xs font-semibold text-[#191c1e] rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#0058be]" />
+                  <span>Verification Details</span>
+                </Link>
                 <Link
                   to="/recruiter/company/edit"
                   className="px-4 py-2 bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -148,7 +159,12 @@ export default function RecruiterCompanyProfilePage() {
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-[#191c1e] tracking-tight">
                   {company.name}
                 </h1>
-                {isVerified ? (
+                {isReverification ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 text-xs font-semibold border border-purple-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Verified Enterprise (Reverification In Progress)</span>
+                  </span>
+                ) : isApproved ? (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Verified Enterprise</span>
@@ -161,7 +177,7 @@ export default function RecruiterCompanyProfilePage() {
                 ) : (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200">
                     <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Unverified</span>
+                    <span>{isDraft ? 'Unverified (Draft)' : 'Unverified'}</span>
                   </span>
                 )}
               </div>
@@ -250,9 +266,9 @@ export default function RecruiterCompanyProfilePage() {
                         <h3 className="font-bold text-xs text-[#191c1e]">{benefit.name}</h3>
                       </div>
                       {benefit.custom_description && (
-                        <p className="text-[11px] text-[#41474d] leading-relaxed pl-5">
-                          {benefit.custom_description}
-                        </p>
+                        <div className="text-[11px] text-[#41474d] leading-relaxed pl-5">
+                          <MarkdownContent content={benefit.custom_description} />
+                        </div>
                       )}
                     </div>
                   ))}
@@ -264,27 +280,110 @@ export default function RecruiterCompanyProfilePage() {
               )}
             </section>
 
-            {/* Open Roles Preview */}
-            <section className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-xs space-y-3">
+            {/* Job Postings Section */}
+            <section className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-xs space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
                   <Briefcase className="w-4 h-4 text-[#0058be]" />
-                  <span>Job Postings</span>
+                  <span>Job Postings ({company.jobs?.length || 0})</span>
                 </h2>
-                <span className="text-xs text-[#71787e]">Module 6 Jobs</span>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to={isVerified ? '/recruiter/jobs/new' : '/recruiter/company/verify'}
+                    className="text-xs px-3 py-1.5 bg-[#0058be] text-white font-semibold rounded-lg hover:bg-[#004ca5] transition-colors"
+                  >
+                    + Post a Job
+                  </Link>
+                  <Link
+                    to="/recruiter/jobs"
+                    className="text-xs text-[#0058be] font-semibold hover:underline"
+                  >
+                    Manage All &rarr;
+                  </Link>
+                </div>
               </div>
-              <p className="text-xs text-[#71787e]">
-                {isVerified
-                  ? 'Your active job postings will be displayed here once posted.'
-                  : 'Complete verification to start publishing live job openings.'}
-              </p>
+
+              {company.jobs && company.jobs.length > 0 ? (
+                <div className="space-y-3">
+                  {company.jobs.slice(0, 5).map((job) => (
+                    <div
+                      key={job.id}
+                      className="p-4 rounded-xl border border-[#e0e3e5] hover:border-[#0058be]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to={`/recruiter/jobs/${job.id}/overview`}
+                            className="text-sm font-bold text-[#191c1e] hover:text-[#0058be] transition-colors"
+                          >
+                            {job.job_title}
+                          </Link>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              job.job_status === 'published'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : job.job_status === 'draft'
+                                ? 'bg-slate-100 text-slate-700'
+                                : job.job_status === 'on_hold'
+                                ? 'bg-amber-50 text-amber-700'
+                                : 'bg-red-50 text-red-700'
+                            }`}
+                          >
+                            {job.job_status === 'published' ? 'Active' : job.job_status.replace('_', ' ')}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-[#71787e]">
+                          {job.department?.value && <span>{job.department.value}</span>}
+                          {job.location && <span>• {job.location}</span>}
+                          {(job.salary_min || job.salary_max) && (
+                            <span className="text-[#137333] font-semibold">
+                              • {formatSalaryRange(job.salary_min, job.salary_max, job.salary_currency)}
+                            </span>
+                          )}
+                          <span>• {job.openings} opening{job.openings > 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                        <Link
+                          to={`/recruiter/jobs/${job.id}/pipeline`}
+                          className="px-3 py-1.5 rounded-lg border border-[#c1c7ce] text-xs font-semibold text-[#191c1e] hover:bg-slate-50 transition-colors"
+                        >
+                          Pipeline
+                        </Link>
+                        <Link
+                          to={`/recruiter/jobs/${job.id}/overview`}
+                          className="px-3 py-1.5 rounded-lg bg-[#0058be] text-xs font-semibold text-white hover:bg-[#004ca5] transition-colors"
+                        >
+                          View
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-6 text-center text-xs text-[#71787e] bg-[#f7f9fb] rounded-xl border border-dashed border-[#c3c7cb] space-y-2">
+                  <Briefcase className="w-6 h-6 mx-auto text-[#0058be] opacity-50 mb-1" />
+                  <p className="font-semibold text-[#191c1e]">No Job Postings Yet</p>
+                  <p className="text-xs text-[#71787e]">
+                    {isVerified
+                      ? 'Create your first job listing to start receiving candidate applications.'
+                      : 'Complete company verification to publish live job openings.'}
+                  </p>
+                  <Link
+                    to={isVerified ? '/recruiter/jobs/new' : '/recruiter/company/verify'}
+                    className="inline-block mt-2 px-4 py-1.5 bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-semibold rounded-lg transition-colors"
+                  >
+                    + Create Job Posting
+                  </Link>
+                </div>
+              )}
             </section>
           </div>
 
           {/* Sidebar (1 Col) */}
           <aside className="space-y-6">
             {/* Complete Verification Action Card (Figma Page 5) */}
-            {!isVerified && (
+            {!isVerified ? (
               <div className="bg-linear-to-br from-slate-900 to-indigo-950 p-6 rounded-2xl text-white shadow-md space-y-4">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-indigo-400" />
@@ -299,6 +398,37 @@ export default function RecruiterCompanyProfilePage() {
                   className="block w-full py-2.5 bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-semibold rounded-xl text-center shadow-xs transition-colors"
                 >
                   Complete Verification
+                </Link>
+              </div>
+            ) : (
+              <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                    <h3 className="font-bold text-xs text-[#191c1e]">
+                      {isReverification ? 'Reverification In Progress' : 'Enterprise Verified'}
+                    </h3>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      isReverification
+                        ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    }`}
+                  >
+                    {isReverification ? 'Auditing Updates' : 'Active'}
+                  </span>
+                </div>
+                <p className="text-xs text-[#71787e] leading-relaxed">
+                  {isReverification
+                    ? 'Your updated compliance documents are currently under review. Active publishing and portal privileges remain enabled.'
+                    : 'Your organization is officially verified. All compliance filings and documents are securely stored and validated.'}
+                </p>
+                <Link
+                  to="/recruiter/company/verify"
+                  className="block w-full py-2 bg-slate-50 hover:bg-slate-100 border border-[#c3c7cb] text-[#191c1e] text-xs font-semibold rounded-xl text-center transition-colors"
+                >
+                  Verification Details
                 </Link>
               </div>
             )}

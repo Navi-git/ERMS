@@ -20,6 +20,7 @@ import { candidateApi } from '../../api/candidateApi';
 import { useToast } from '../../context/ToastContext';
 import ATSAnalysisModal from '../../components/candidate/ATSAnalysisModal';
 import Pagination from '../../components/common/Pagination';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
 
 export default function ResumeManagementPage() {
   const { showToast } = useToast();
@@ -44,6 +45,11 @@ export default function ResumeManagementPage() {
   // ATS Modal state
   const [selectedResumeForATS, setSelectedResumeForATS] = useState(null);
   const [reanalyzingId, setReanalyzingId] = useState(null);
+
+  // Archive Confirmation Modal State
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+  const [resumeToArchive, setResumeToArchive] = useState(null);
+  const [archiving, setArchiving] = useState(false);
 
   const loadResumes = async () => {
     try {
@@ -137,15 +143,25 @@ export default function ResumeManagementPage() {
     }
   };
 
-  // Archive Resume
-  const handleArchive = async (id) => {
-    if (!window.confirm('Are you sure you want to archive this resume?')) return;
+  // Archive Resume Handlers
+  const handleOpenArchiveModal = (resume) => {
+    setResumeToArchive(resume);
+    setArchiveModalOpen(true);
+  };
+
+  const handleConfirmArchive = async () => {
+    if (!resumeToArchive) return;
+    setArchiving(true);
     try {
-      await candidateApi.archiveResume(id);
-      showToast('Resume archived.', 'info');
+      await candidateApi.archiveResume(resumeToArchive.id);
+      showToast(`"${resumeToArchive.title}" archived successfully.`, 'success');
+      setArchiveModalOpen(false);
+      setResumeToArchive(null);
       loadResumes();
     } catch (err) {
-      showToast('Failed to archive resume.', 'error');
+      showToast(err.response?.data?.message || 'Failed to archive resume.', 'error');
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -486,11 +502,11 @@ export default function ResumeManagementPage() {
                         </button>
                         {!isArchived ? (
                           <button
-                            onClick={() => handleArchive(resume.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            onClick={() => handleOpenArchiveModal(resume)}
+                            className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
                             title="Archive resume"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Archive className="w-4 h-4" />
                           </button>
                         ) : (
                           <button
@@ -532,6 +548,32 @@ export default function ResumeManagementPage() {
           onClose={() => setSelectedResumeForATS(null)}
         />
       )}
+
+      {/* Aesthetic Archive Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={archiveModalOpen}
+        onClose={() => {
+          if (!archiving) {
+            setArchiveModalOpen(false);
+            setResumeToArchive(null);
+          }
+        }}
+        onConfirm={handleConfirmArchive}
+        loading={archiving}
+        title="Archive Resume?"
+        variant="archive"
+        confirmText="Archive Resume"
+        cancelText="Cancel"
+        message={
+          <span>
+            Are you sure you want to archive{' '}
+            <strong className="text-[#191c1e]">"{resumeToArchive?.title || 'this resume'}"</strong>?
+            This resume will be hidden when applying to future job openings, but your existing applications
+            will remain intact. You can view and unarchive it anytime under{' '}
+            <strong className="text-[#191c1e]">"Show Archived"</strong>.
+          </span>
+        }
+      />
     </CandidateLayout>
   );
 }

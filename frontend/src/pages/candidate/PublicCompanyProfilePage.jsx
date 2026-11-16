@@ -27,6 +27,7 @@ import WriteCompanyReviewModal from '../../components/candidate/WriteCompanyRevi
 import { useToast } from '../../context/ToastContext';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
 import MarkdownContent from '../../components/common/MarkdownContent';
+import { formatSalaryRange } from '../../utils/currency';
 
 export default function PublicCompanyProfilePage() {
   const { id } = useParams();
@@ -270,9 +271,9 @@ export default function PublicCompanyProfilePage() {
                       <h3 className="font-bold text-xs text-[#191c1e]">{benefit.name}</h3>
                     </div>
                     {benefit.custom_description && (
-                      <p className="text-[11px] text-[#41474d] leading-relaxed pl-8">
-                        {benefit.custom_description}
-                      </p>
+                      <div className="text-[11px] text-[#41474d] leading-relaxed pl-8">
+                        <MarkdownContent content={benefit.custom_description} />
+                      </div>
                     )}
                   </div>
                 ))}
@@ -284,21 +285,77 @@ export default function PublicCompanyProfilePage() {
             )}
           </section>
 
-          {/* Open Roles Section (Placeholder for upcoming Jobs Module) */}
+          {/* Open Roles Section */}
           <section className="bg-white p-6 rounded-2xl border border-[#e0e3e5] shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-[#191c1e] flex items-center gap-2">
                 <Briefcase className="w-4 h-4 text-[#0058be]" />
-                <span>Open Roles</span>
+                <span>Open Roles ({company.open_roles?.length || 0})</span>
               </h2>
-              <span className="text-xs text-[#71787e]">Module 6 Integration</span>
+              {company.open_roles?.length > 0 && (
+                <Link
+                  to={`/jobs?company=${encodeURIComponent(company.name)}`}
+                  className="text-xs text-[#0058be] font-semibold hover:underline"
+                >
+                  View all in job board &rarr;
+                </Link>
+              )}
             </div>
 
-            <div className="p-6 text-center text-xs text-[#71787e] bg-[#f7f9fb] rounded-xl border border-dashed border-[#c3c7cb] space-y-1">
-              <Briefcase className="w-6 h-6 mx-auto text-[#0058be] opacity-50 mb-2" />
-              <p className="font-semibold text-[#191c1e]">Job Postings Coming Soon</p>
-              <p>Active job vacancies will appear here once the Jobs module is activated.</p>
-            </div>
+            {company.open_roles && company.open_roles.length > 0 ? (
+              <div className="space-y-3">
+                {company.open_roles.map((job) => (
+                  <div
+                    key={job.id}
+                    className="p-4 rounded-xl border border-[#e0e3e5] hover:border-[#0058be]/40 hover:shadow-xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white"
+                  >
+                    <div className="space-y-1.5">
+                      <Link
+                        to={`/jobs/${job.id}`}
+                        className="text-sm font-bold text-[#191c1e] hover:text-[#0058be] transition-colors"
+                      >
+                        {job.job_title}
+                      </Link>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[#71787e]">
+                        {job.department?.value && (
+                          <span className="px-2 py-0.5 rounded-md bg-[#f1f4f6] text-[#41474d] font-medium">
+                            {job.department.value}
+                          </span>
+                        )}
+                        {job.work_mode?.value && (
+                          <span className="px-2 py-0.5 rounded-md bg-[#e8f0fe] text-[#0058be] font-medium">
+                            {job.work_mode.value}
+                          </span>
+                        )}
+                        {job.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {job.location}
+                          </span>
+                        )}
+                        {(job.salary_min || job.salary_max) && (
+                          <span className="font-semibold text-[#137333]">
+                            {formatSalaryRange(job.salary_min, job.salary_max, job.salary_currency)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Link
+                      to={`/jobs/${job.id}`}
+                      className="px-4 py-2 rounded-xl bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-semibold self-start sm:self-auto shrink-0 transition-colors"
+                    >
+                      View Role
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 text-center text-xs text-[#71787e] bg-[#f7f9fb] rounded-xl border border-dashed border-[#c3c7cb] space-y-1">
+                <Briefcase className="w-6 h-6 mx-auto text-[#0058be] opacity-50 mb-2" />
+                <p className="font-semibold text-[#191c1e]">No Active Openings</p>
+                <p>There are no open positions listed at the moment. Please check back later.</p>
+              </div>
+            )}
           </section>
 
           {/* Reviews Section (Figma Page 2 & Page 3) */}

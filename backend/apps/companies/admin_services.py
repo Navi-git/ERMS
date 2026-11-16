@@ -51,6 +51,7 @@ def list_company_verifications_queue(
         "total": all_companies.count(),
         "pending": all_companies.filter(verification_status=CompanyVerificationStatus.PENDING).count(),
         "under_review": all_companies.filter(verification_status=CompanyVerificationStatus.UNDER_REVIEW).count(),
+        "reverification": all_companies.filter(verification_status=CompanyVerificationStatus.REVERIFICATION).count(),
         "approved": all_companies.filter(verification_status=CompanyVerificationStatus.APPROVED).count(),
         "rejected": all_companies.filter(verification_status=CompanyVerificationStatus.REJECTED).count(),
     }
@@ -82,7 +83,7 @@ def start_verification_review(company_id, admin_user):
     if not company:
         raise ApiError("not_found", "Company record not found.", 404)
 
-    verification = company.verifications.order_by("-submitted_at").first()
+    verification = company.verifications.order_by("-id").first()
     if not verification:
         verification = CompanyVerification.objects.create(
             company=company,
@@ -118,7 +119,7 @@ def approve_company_verification(company_id, admin_user, risk_score=None, risk_l
     if not company:
         raise ApiError("not_found", "Company record not found.", 404)
 
-    verification = company.verifications.order_by("-submitted_at").first()
+    verification = company.verifications.order_by("-id").first()
     if not verification:
         raise ApiError("invalid_state", "No verification submission found to approve.", 400)
 
@@ -155,7 +156,7 @@ def reject_company_verification(company_id, admin_user, rejection_reason):
     if not company:
         raise ApiError("not_found", "Company record not found.", 404)
 
-    verification = company.verifications.order_by("-submitted_at").first()
+    verification = company.verifications.order_by("-id").first()
     if not verification:
         raise ApiError("invalid_state", "No verification submission found to reject.", 400)
 
@@ -190,7 +191,7 @@ def add_internal_note(company_id, admin_user, note_text):
     if not company:
         raise ApiError("not_found", "Company record not found.", 404)
 
-    verification = company.verifications.order_by("-submitted_at").first()
+    verification = company.verifications.order_by("-id").first()
     if not verification:
         raise ApiError("invalid_state", "No verification submission exists for this company.", 400)
 

@@ -19,6 +19,7 @@ import {
 import candidateApi from '../../api/candidateApi';
 import applicationApi from '../../api/applicationApi';
 import { useToast } from '../../context/ToastContext';
+import MarkdownEditor from '../common/MarkdownEditor';
 
 const LinkedinIcon = (props) => (
   <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
@@ -471,16 +472,15 @@ export default function ApplyJobMultiStepModal({ isOpen, onClose, job, onSuccess
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-[#41474d] block mb-1">
-                        Cover Letter (Optional)
-                      </label>
-                      <textarea
+                      <MarkdownEditor
+                        label="Cover Letter (Optional)"
+                        labelClassName="text-xs font-bold text-[#41474d] block"
                         rows={3}
                         value={formData.coverLetter}
                         onChange={(e) =>
                           setFormData({ ...formData, coverLetter: e.target.value })
                         }
-                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#c1c7ce] text-xs focus:border-[#0058be] outline-none"
+                        textareaClassName="w-full px-3.5 py-2.5 rounded-xl border border-[#c1c7ce] text-xs focus:border-[#0058be] outline-none"
                         placeholder="Add your full cover letter or personal introduction..."
                       />
                     </div>

@@ -75,8 +75,8 @@ class PublicCompanyListSerializer(serializers.ModelSerializer):
         ]
 
     def get_open_roles_count(self, obj):
-        # Open roles count will integrate with apps.jobs when Module 6 is built
-        return 0
+        from apps.jobs.models import JobStatus
+        return obj.jobs.filter(job_status=JobStatus.PUBLISHED).count()
 
     def get_rating_average(self, obj):
         reviews = obj.reviews.filter(moderation_status="APPROVED")
@@ -156,5 +156,19 @@ class PublicCompanyDetailSerializer(serializers.ModelSerializer):
         }
 
     def get_open_roles(self, obj):
-        # Open roles list will link to jobs.Job when Module 6 is built
-        return []
+        from apps.jobs.models import JobStatus
+        from apps.jobs.serializers import PublicJobCardSerializer
+
+        published_jobs = (
+            obj.jobs.filter(job_status=JobStatus.PUBLISHED)
+            .select_related(
+                "company",
+                "job_category",
+                "department",
+                "experience_level",
+                "work_mode",
+            )
+            .prefetch_related("skills__skill")
+            .order_by("-published_at", "-created_at")
+        )
+        return PublicJobCardSerializer(published_jobs, many=True, context=self.context).data

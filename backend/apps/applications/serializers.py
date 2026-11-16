@@ -134,6 +134,7 @@ class CandidateApplicationListSerializer(serializers.ModelSerializer):
                 "id": latest.job_stage.id,
                 "name": latest.job_stage.name,
                 "type": latest.job_stage.stage_type,
+                "order": latest.job_stage.stage_order,
             }
         return None
 
@@ -164,6 +165,8 @@ class CandidateApplicationDetailSerializer(CandidateApplicationListSerializer):
         return {
             "id": obj.resume.id,
             "title": obj.resume.title,
+            "file_name": getattr(obj.resume, "file_name", ""),
+            "file_type": getattr(obj.resume, "file_type", ""),
             "file_url": obj.resume.file_url,
             "file_size": obj.resume.file_size,
             "created_at": obj.resume.uploaded_at,
@@ -172,22 +175,26 @@ class CandidateApplicationDetailSerializer(CandidateApplicationListSerializer):
     def get_pipeline_stepper(self, obj):
         """Constructs an end-to-end visual pipeline stepper with completion status for candidate."""
         job_stages = list(obj.job.stages.order_by("stage_order", "id"))
-        active_progress = obj.stage_progresses.filter(completed_at__isnull=True).first()
-        active_stage_id = active_progress.job_stage_id if active_progress else None
+        active_progress = obj.stage_progresses.filter(completed_at__isnull=True).order_by("-started_at").first()
+        if not active_progress:
+            active_progress = obj.stage_progresses.order_by("-started_at").first()
 
-        completed_stage_ids = set(
-            obj.stage_progresses.filter(completed_at__isnull=False).values_list("job_stage_id", flat=True)
+        active_stage_id = active_progress.job_stage_id if active_progress else None
+        active_order = active_progress.job_stage.stage_order if (active_progress and active_progress.job_stage) else (
+            job_stages[0].stage_order if job_stages else 1
         )
 
         steps = []
         for stage in job_stages:
-            is_completed = stage.id in completed_stage_ids and stage.id != active_stage_id
             is_current = stage.id == active_stage_id
+            is_completed = stage.stage_order < active_order
+            status_label = "in_progress" if is_current else ("completed" if is_completed else "pending")
             steps.append({
                 "id": stage.id,
                 "name": stage.name,
                 "type": stage.stage_type,
                 "order": stage.stage_order,
+                "status": status_label,
                 "is_completed": is_completed,
                 "is_current": is_current,
             })
@@ -257,6 +264,7 @@ class RecruiterApplicantListSerializer(serializers.ModelSerializer):
                 "id": latest.job_stage.id,
                 "name": latest.job_stage.name,
                 "type": latest.job_stage.stage_type,
+                "order": latest.job_stage.stage_order,
             }
         return None
 
@@ -348,6 +356,8 @@ class RecruiterApplicantDetailSerializer(RecruiterApplicantListSerializer):
         return {
             "id": res.id,
             "title": res.title,
+            "file_name": getattr(res, "file_name", ""),
+            "file_type": getattr(res, "file_type", ""),
             "file_url": res.file_url,
             "file_size": res.file_size,
             "created_at": res.uploaded_at,
@@ -355,13 +365,26 @@ class RecruiterApplicantDetailSerializer(RecruiterApplicantListSerializer):
         }
 
     def get_stages(self, obj):
-        """All stages defined on the job for quick stage-movement dropdowns."""
+        """All stages defined on the job with active sequential status for applicant dossier."""
+        job_stages = list(obj.job.stages.order_by("stage_order", "id"))
+        active_progress = obj.stage_progresses.filter(completed_at__isnull=True).order_by("-started_at").first()
+        if not active_progress:
+            active_progress = obj.stage_progresses.order_by("-started_at").first()
+
+        active_stage_id = active_progress.job_stage_id if active_progress else None
+        active_order = active_progress.job_stage.stage_order if (active_progress and active_progress.job_stage) else (
+            job_stages[0].stage_order if job_stages else 1
+        )
+
         return [
             {
                 "id": s.id,
                 "name": s.name,
                 "type": s.stage_type,
                 "order": s.stage_order,
+                "status": "in_progress" if s.id == active_stage_id else ("completed" if s.stage_order < active_order else "pending"),
+                "is_completed": s.stage_order < active_order,
+                "is_current": s.id == active_stage_id,
             }
-            for s in obj.job.stages.order_by("stage_order", "id")
+            for s in job_stages
         ]

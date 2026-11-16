@@ -24,6 +24,7 @@ import ApplyJobInfoModal from '../../components/candidate/ApplyJobInfoModal';
 import jobApi from '../../api/jobApi';
 import masterDataApi from '../../api/masterDataApi';
 import { useToast } from '../../context/ToastContext';
+import { formatSalaryRange } from '../../utils/currency';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
 
 export default function BrowseJobsPage() {
@@ -341,7 +342,7 @@ export default function BrowseJobsPage() {
             <div className="flex items-center gap-2">
               <input
                 type="number"
-                placeholder="Min ($)"
+                placeholder="Min (₹)"
                 value={salaryMin}
                 onChange={(e) => setSalaryMin(e.target.value)}
                 className="w-1/2 px-3 py-2 rounded-xl border border-[#c1c7ce] bg-white text-xs text-[#191c1e] focus:outline-hidden focus:border-[#0058be]"
@@ -349,7 +350,7 @@ export default function BrowseJobsPage() {
               <span className="text-[#71787e] text-xs">–</span>
               <input
                 type="number"
-                placeholder="Max ($)"
+                placeholder="Max (₹)"
                 value={salaryMax}
                 onChange={(e) => setSalaryMax(e.target.value)}
                 className="w-1/2 px-3 py-2 rounded-xl border border-[#c1c7ce] bg-white text-xs text-[#191c1e] focus:outline-hidden focus:border-[#0058be]"
@@ -456,9 +457,7 @@ export default function BrowseJobsPage() {
                           )}
                           {(job.salary_min || job.salary_max) && (
                             <span className="px-2.5 py-0.5 rounded-md bg-[#e6f4ea] text-[#137333] text-xs font-semibold">
-                              {job.salary_min && job.salary_max
-                                ? `$${Number(job.salary_min).toLocaleString()} - $${Number(job.salary_max).toLocaleString()}`
-                                : `$${Number(job.salary_min || job.salary_max).toLocaleString()}`}
+                              {formatSalaryRange(job.salary_min, job.salary_max, job.salary_currency)}
                             </span>
                           )}
                         </div>

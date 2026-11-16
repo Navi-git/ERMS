@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, AlertCircle } from 'lucide-react';
+import MarkdownEditor from '../common/MarkdownEditor';
 
 export default function AddEditExperienceModal({ initialData, onClose, onSave }) {
   const [formData, setFormData] = useState({
@@ -179,14 +180,15 @@ export default function AddEditExperienceModal({ initialData, onClose, onSave })
           </div>
 
           <div>
-            <label className="block font-semibold text-[#191c1e] mb-1">Responsibilities & Impact</label>
-            <textarea
+            <MarkdownEditor
+              label="Responsibilities & Impact"
+              labelClassName="block font-semibold text-xs text-[#191c1e]"
               name="description"
               rows={4}
               value={formData.description}
               onChange={handleChange}
               placeholder="Describe your achievements, technical stack used, and quantifiable results..."
-              className="w-full px-3 py-2 border border-[#c3c7cb] rounded-lg focus:outline-none focus:border-[#0058be] text-xs text-[#191c1e]"
+              textareaClassName="w-full px-3 py-2 border border-[#c3c7cb] rounded-xl focus:outline-none focus:border-[#0058be] text-xs text-[#191c1e]"
             />
           </div>
 

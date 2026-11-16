@@ -22,8 +22,12 @@ import {
   MoreVertical,
 } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout';
+import AdminFlagJobModal from '../../components/admin/AdminFlagJobModal';
+import AdminHoldJobModal from '../../components/admin/AdminHoldJobModal';
 import jobApi from '../../api/jobApi';
 import { useToast } from '../../context/ToastContext';
+import { formatSalaryRange } from '../../utils/currency';
+import MarkdownContent from '../../components/common/MarkdownContent';
 
 export default function AdminJobDetailPage() {
   const { id } = useParams();
@@ -36,6 +40,8 @@ export default function AdminJobDetailPage() {
   const [newNoteText, setNewNoteText] = useState('');
   const [addingNote, setAddingNote] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [flagModalOpen, setFlagModalOpen] = useState(false);
+  const [holdModalOpen, setHoldModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadJobDetail() {
@@ -54,14 +60,14 @@ export default function AdminJobDetailPage() {
     loadJobDetail();
   }, [id, navigate, showToast]);
 
-  const handleUpdateStatus = async (newStatus) => {
-    const reason =
-      newStatus === 'on_hold'
-        ? window.prompt('Enter reason for placing on hold:', 'Administrative policy review')
-        : '';
+  const handleUpdateStatus = async (newStatus, reason = '') => {
     try {
-      const res = await jobApi.updateAdminJobStatus(id, { status: newStatus, reason });
-      setJob((prev) => ({ ...prev, job_status: newStatus, on_hold_reason: reason }));
+      await jobApi.updateAdminJobStatus(id, { status: newStatus, reason });
+      setJob((prev) => ({
+        ...prev,
+        job_status: newStatus,
+        on_hold_reason: newStatus === 'on_hold' ? reason : null,
+      }));
       showToast(`Job status changed to ${newStatus}.`, 'success');
     } catch (err) {
       showToast('Failed to update status.', 'error');
@@ -70,20 +76,19 @@ export default function AdminJobDetailPage() {
     }
   };
 
-  const handleFlagJob = async () => {
-    const reason = window.prompt('Enter reason for administrative flag:', 'Suspicious terms');
-    if (!reason) return;
-
+  const handleFlagSuccess = async () => {
     try {
-      const res = await jobApi.flagAdminJob(id, { reason });
-      setJob((prev) => ({
-        ...prev,
-        reports: [res.data, ...(prev.reports || [])],
-      }));
-      showToast('Flag recorded and added to reports.', 'success');
-    } catch (err) {
-      showToast('Failed to flag job.', 'error');
-    }
+      const res = await jobApi.getAdminJob(id);
+      setJob(res.data);
+    } catch (e) {}
+  };
+
+  const handleHoldSuccess = (reason) => {
+    setJob((prev) => ({
+      ...prev,
+      job_status: 'on_hold',
+      on_hold_reason: reason,
+    }));
   };
 
   const handleAddNote = async (e) => {
@@ -168,7 +173,7 @@ export default function AdminJobDetailPage() {
             <div className="flex items-center gap-3 w-full md:w-auto shrink-0 relative">
               <button
                 type="button"
-                onClick={handleFlagJob}
+                onClick={() => setFlagModalOpen(true)}
                 className="px-4 py-2.5 rounded-xl border border-[#d5d7da] bg-white font-semibold text-xs text-[#ba1a1a] hover:bg-[#ffdad6]/40 transition-colors flex items-center gap-2 cursor-pointer"
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
@@ -190,7 +195,10 @@ export default function AdminJobDetailPage() {
                   {job.job_status !== 'on_hold' && (
                     <button
                       type="button"
-                      onClick={() => handleUpdateStatus('on_hold')}
+                      onClick={() => {
+                        setStatusMenuOpen(false);
+                        setHoldModalOpen(true);
+                      }}
                       className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-[#b06000] hover:bg-[#fff8e1] flex items-center gap-2 cursor-pointer"
                     >
                       <PauseCircle className="w-3.5 h-3.5" />
@@ -224,6 +232,22 @@ export default function AdminJobDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* On Hold Notification Banner */}
+        {job.job_status === 'on_hold' && (
+          <div className="p-4 rounded-2xl bg-[#fff8e1] border border-[#ffe082] flex items-start gap-3 shadow-2xs">
+            <PauseCircle className="w-5 h-5 text-[#b06000] shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <div className="text-xs font-bold text-[#7c4a00]">This job listing is currently ON HOLD</div>
+              <p className="text-xs text-[#9a5b00]">
+                Reason: <span className="font-semibold">{job.on_hold_reason || 'Administrative policy review'}</span>
+              </p>
+              <p className="text-[11px] text-[#7c4a00]/80">
+                It is hidden from candidate search and application submissions are disabled until reactivated.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 3 Top Metric Cards (Figma Page 12) */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -261,8 +285,12 @@ export default function AdminJobDetailPage() {
               <h3 className="font-bold text-base text-[#191c1e] border-b border-[#f0f2f5] pb-3">
                 Job Overview & Description
               </h3>
-              <div className="text-xs text-[#414651] leading-relaxed whitespace-pre-line">
-                {job.job_description}
+              <div className="text-xs text-[#414651] leading-relaxed">
+                {job.job_description ? (
+                  <MarkdownContent content={job.job_description} />
+                ) : (
+                  'No description provided.'
+                )}
               </div>
             </div>
 
@@ -274,9 +302,9 @@ export default function AdminJobDetailPage() {
                     <h4 className="font-bold text-xs uppercase tracking-wider text-[#717680] mb-2">
                       Key Requirements
                     </h4>
-                    <p className="text-xs text-[#414651] whitespace-pre-line">
-                      {job.requirements}
-                    </p>
+                    <div className="text-xs text-[#414651]">
+                      <MarkdownContent content={job.requirements} />
+                    </div>
                   </div>
                 )}
                 {job.responsibilities && (
@@ -284,9 +312,9 @@ export default function AdminJobDetailPage() {
                     <h4 className="font-bold text-xs uppercase tracking-wider text-[#717680] mb-2">
                       Responsibilities
                     </h4>
-                    <p className="text-xs text-[#414651] whitespace-pre-line">
-                      {job.responsibilities}
-                    </p>
+                    <div className="text-xs text-[#414651]">
+                      <MarkdownContent content={job.responsibilities} />
+                    </div>
                   </div>
                 )}
               </div>
@@ -359,9 +387,7 @@ export default function AdminJobDetailPage() {
                 <div>
                   <span className="text-[#717680] block mb-0.5">Salary Offering</span>
                   <div className="font-bold text-[#137333]">
-                    {job.salary_min && job.salary_max
-                      ? `$${Number(job.salary_min).toLocaleString()} - $${Number(job.salary_max).toLocaleString()} ${job.salary_currency}`
-                      : 'Not specified'}
+                    {formatSalaryRange(job.salary_min, job.salary_max, job.salary_currency)}
                   </div>
                 </div>
               </div>
@@ -416,6 +442,21 @@ export default function AdminJobDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Modals */}
+        <AdminFlagJobModal
+          isOpen={flagModalOpen}
+          onClose={() => setFlagModalOpen(false)}
+          job={job}
+          onSuccess={handleFlagSuccess}
+        />
+
+        <AdminHoldJobModal
+          isOpen={holdModalOpen}
+          onClose={() => setHoldModalOpen(false)}
+          job={job}
+          onSuccess={handleHoldSuccess}
+        />
       </div>
     </AdminLayout>
   );

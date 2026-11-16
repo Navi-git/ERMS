@@ -18,6 +18,7 @@ import ApplyJobInfoModal from '../../components/candidate/ApplyJobInfoModal';
 import jobApi from '../../api/jobApi';
 import { useToast } from '../../context/ToastContext';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
+import { formatSalaryRange } from '../../utils/currency';
 
 export default function SavedJobsPage() {
   const { showToast } = useToast();
@@ -243,9 +244,7 @@ export default function SavedJobsPage() {
                     <div className="pt-1 text-xs">
                       {(job.salary_min || job.salary_max) && (
                         <div className="font-bold text-[#137333]">
-                          {job.salary_min && job.salary_max
-                            ? `$${Number(job.salary_min).toLocaleString()} - $${Number(job.salary_max).toLocaleString()}`
-                            : `$${Number(job.salary_min || job.salary_max).toLocaleString()}`}
+                          {formatSalaryRange(job.salary_min, job.salary_max, job.salary_currency)}
                         </div>
                       )}
                       <div className="text-[#71787e] text-[11px] mt-0.5">

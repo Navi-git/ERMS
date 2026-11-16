@@ -51,7 +51,7 @@ def _enforce_send_limits(email, purpose):
     cache.set(cooldown_key, 1, timeout=settings.OTP_RESEND_COOLDOWN_SECONDS)
 
 
-def issue_otp(*, user, email, purpose):
+def issue_otp(*, email, purpose, user=None):
     """Create a new OTP row, expire older unused ones, and email the code."""
     _enforce_send_limits(email, purpose)
     now = timezone.now()
@@ -84,41 +84,43 @@ def issue_otp(*, user, email, purpose):
 
 
 def register_user(*, email, password, role, full_name=None, company_name=None):
-    """Create user + user_security (+ company for recruiters) + OTP in ONE transaction.
+    """Stage pending registration in cache and dispatch email OTP.
 
-    If anything fails (including sending the email) everything is rolled back.
+    User, UserSecurity, and Company are NOT created in the database yet.
+    They are atomically created only when verify_email_otp succeeds.
     """
     email = email.strip().lower()
     existing = User.objects.filter(email=email).first()
     if existing:
         if existing.is_email_verified:
             raise ApiError("email_already_registered", "An account with this email already exists.", 409)
-        raise ApiError(
-            "email_not_verified",
-            "This email is registered but not verified. Request a new code to continue.",
-            409,
-        )
-
-    try:
+        # If an unverified user exists from legacy/abandoned registrations, remove it so clean registration can proceed
         with transaction.atomic():
-            now = timezone.now()
-            user = User.objects.create_user(
-                email,
-                password,
-                role=role,
-                full_name=full_name or company_name,  # recruiters default to the company name
-                terms_accepted_at=now,
-                terms_version=settings.TERMS_VERSION,
-                privacy_accepted_at=now,
-                privacy_version=settings.PRIVACY_VERSION,
-            )
-            UserSecurity.objects.create(user=user, password_last_changed_at=now)
-            if role == Role.RECRUITER:
-                Company.objects.create(name=company_name, admin_user=user)  # verification_status=PENDING
-            issue_otp(user=user, email=email, purpose=OtpPurpose.EMAIL_VERIFICATION)
-    except IntegrityError:  # two requests raced past the exists() check
-        raise ApiError("email_already_registered", "An account with this email already exists.", 409)
-    return user
+            if existing.role == Role.RECRUITER:
+                Company.objects.filter(admin_user=existing).delete()
+            existing.delete()
+
+    # Stage registration in cache
+    pending_payload = {
+        "email": email,
+        "password_hash": make_password(password),
+        "role": role,
+        "full_name": full_name or company_name,
+        "company_name": company_name,
+    }
+    cache_key = f"pending_reg:{email}"
+    cache.set(cache_key, pending_payload, timeout=settings.OTP_EXPIRY_MINUTES * 60)
+
+    # Issue OTP for email verification
+    issue_otp(email=email, purpose=OtpPurpose.EMAIL_VERIFICATION, user=None)
+
+    return {
+        "email": email,
+        "role": role,
+        "full_name": full_name or company_name,
+        "is_email_verified": False,
+        "message": "Verification code sent to your email.",
+    }
 
 
 def _consume_otp(*, email, purpose, code):
@@ -134,7 +136,7 @@ def _consume_otp(*, email, purpose, code):
         .order_by("-created_at", "-id")
         .first()
     )
-    if otp is None or otp.user is None:
+    if otp is None:
         raise ApiError("invalid_otp", "Invalid or expired code.")
 
     attempts_key = f"otp:attempts:{otp.id}"
@@ -150,25 +152,80 @@ def _consume_otp(*, email, purpose, code):
 
 
 def verify_email_otp(*, email, code):
+    """Verify OTP and atomically create the user account (or verify existing unverified user)."""
     email = email.strip().lower()
     now = timezone.now()
+    cache_key = f"pending_reg:{email}"
+    pending = cache.get(cache_key)
+
     with transaction.atomic():
         otp = _consume_otp(email=email, purpose=OtpPurpose.EMAIL_VERIFICATION, code=code)
-        user = otp.user
-        user.is_email_verified = True
-        user.email_verified_at = now
-        user.save(update_fields=["is_email_verified", "email_verified_at", "updated_at"])
+
+        if pending:
+            # Prevent race conditions if another transaction created this user
+            if User.objects.filter(email=email).exists():
+                cache.delete(cache_key)
+                raise ApiError("email_already_registered", "An account with this email already exists.", 409)
+
+            user = User(
+                email=email,
+                password=pending["password_hash"],
+                role=pending["role"],
+                full_name=pending.get("full_name") or pending.get("company_name") or "",
+                is_active=True,
+                is_email_verified=True,
+                email_verified_at=now,
+                terms_accepted_at=now,
+                terms_version=settings.TERMS_VERSION,
+                privacy_accepted_at=now,
+                privacy_version=settings.PRIVACY_VERSION,
+            )
+            user.save()
+
+            UserSecurity.objects.create(user=user, password_last_changed_at=now)
+
+            if pending["role"] == Role.RECRUITER and pending.get("company_name"):
+                Company.objects.create(name=pending["company_name"], admin_user=user)
+
+            otp.user = user
+            otp.save(update_fields=["user"])
+
+            cache.delete(cache_key)
+        else:
+            # Fallback for existing unverified DB user (legacy migration or existing accounts)
+            user = otp.user or User.objects.filter(email=email, is_email_verified=False).first()
+            if not user:
+                raise ApiError(
+                    "registration_expired",
+                    "Registration session has expired or account was already created. Please register again.",
+                    400,
+                )
+            user.is_email_verified = True
+            user.email_verified_at = now
+            user.save(update_fields=["is_email_verified", "email_verified_at", "updated_at"])
+            otp.user = user
+            otp.save(update_fields=["user"])
+
     cache.delete(f"otp:attempts:{otp.id}")
     return user
 
 
 def resend_email_otp(*, email):
-    """Silently does nothing for unknown/verified emails, so the endpoint cannot be used to probe accounts."""
+    """Resend email OTP for pending registration or unverified user."""
     email = email.strip().lower()
-    user = User.objects.filter(email=email, is_email_verified=False, is_active=True).first()
-    if user is None:
+    cache_key = f"pending_reg:{email}"
+    pending = cache.get(cache_key)
+
+    if pending:
+        # Refresh cache TTL and issue new OTP
+        cache.set(cache_key, pending, timeout=settings.OTP_EXPIRY_MINUTES * 60)
+        issue_otp(email=email, purpose=OtpPurpose.EMAIL_VERIFICATION, user=None)
         return
-    issue_otp(user=user, email=email, purpose=OtpPurpose.EMAIL_VERIFICATION)
+
+    # Fallback for legacy unverified DB user
+    user = User.objects.filter(email=email, is_email_verified=False, is_active=True).first()
+    if user:
+        issue_otp(email=email, purpose=OtpPurpose.EMAIL_VERIFICATION, user=user)
 
 
 # ---------------------------------------------------------------------------

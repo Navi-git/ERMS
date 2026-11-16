@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Eye,
   FileEdit,
+  X,
 } from 'lucide-react';
 import RecruiterLayout from '../../layouts/RecruiterLayout';
 import companyApi from '../../api/companyApi';
@@ -64,6 +65,8 @@ export default function EditCompanyProfilePage() {
   // Talent tracks (Hiring areas)
   const [allTalentTracks, setAllTalentTracks] = useState([]);
   const [selectedTalentTrackIds, setSelectedTalentTrackIds] = useState([]);
+  const [customTracks, setCustomTracks] = useState([]);
+  const [trackSearch, setTrackSearch] = useState('');
 
   // Industries
   const [industries, setIndustries] = useState([]);
@@ -175,6 +178,38 @@ export default function EditCompanyProfilePage() {
     );
   };
 
+  const handleAddTrack = (name) => {
+    const trimmed = (name || trackSearch).trim();
+    if (!trimmed) return;
+    const matchCatalog = allTalentTracks.find(
+      (t) => t.value.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (matchCatalog) {
+      if (!selectedTalentTrackIds.includes(matchCatalog.id)) {
+        setSelectedTalentTrackIds((prev) => [...prev, matchCatalog.id]);
+      }
+      setTrackSearch('');
+      return;
+    }
+    if (customTracks.some((ct) => ct.toLowerCase() === trimmed.toLowerCase())) {
+      setTrackSearch('');
+      return;
+    }
+    setCustomTracks((prev) => [...prev, trimmed]);
+    setTrackSearch('');
+  };
+
+  const removeCustomTrack = (trackName) => {
+    setCustomTracks((prev) => prev.filter((t) => t !== trackName));
+  };
+
+  const filteredTracks = allTalentTracks.filter(
+    (t) =>
+      trackSearch &&
+      t.value.toLowerCase().includes(trackSearch.toLowerCase()) &&
+      !selectedTalentTrackIds.includes(t.id)
+  );
+
   // Benefit Actions with direct backend sync
   const handleSaveBenefit = async (data) => {
     try {
@@ -231,7 +266,7 @@ export default function EditCompanyProfilePage() {
         state: stateRegion.trim(),
         postal_code: postalCode.trim(),
         country: country.trim(),
-        talent_track_ids: selectedTalentTrackIds,
+        talent_track_ids: [...selectedTalentTrackIds, ...customTracks],
       };
 
       await companyApi.updateRecruiterCompany(payload);
@@ -470,13 +505,22 @@ export default function EditCompanyProfilePage() {
               </div>
 
               {/* Hiring Areas / Talent Tracks */}
-              <div className="space-y-2 pt-2 border-t border-[#f1f4f6]">
-                <label className="text-xs font-bold text-[#191c1e]">
-                  Hiring Areas / Primary Talent Tracks
-                </label>
-                <p className="text-[11px] text-[#71787e]">
-                  Select the key functional domains your organization hires for:
-                </p>
+              <div className="space-y-3 pt-3 border-t border-[#f1f4f6]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-xs font-bold text-[#191c1e]">
+                      Hiring Areas / Primary Talent Tracks
+                    </label>
+                    <p className="text-[11px] text-[#71787e]">
+                      Select or add the key functional domains your organization hires for:
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold text-[#0058be]">
+                    {selectedTalentTrackIds.length + customTracks.length} Selected
+                  </span>
+                </div>
+
+                {/* Available & Custom Track Pills */}
                 <div className="flex flex-wrap gap-2 pt-1">
                   {allTalentTracks.map((track) => {
                     const active = selectedTalentTrackIds.includes(track.id);
@@ -495,6 +539,95 @@ export default function EditCompanyProfilePage() {
                       </button>
                     );
                   })}
+
+                  {customTracks.map((cTrack) => (
+                    <span
+                      key={cTrack}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0058be] text-white shadow-xs"
+                    >
+                      <span>{cTrack}</span>
+                      <span className="text-[9px] px-1 py-0.2 bg-white/20 rounded font-normal uppercase">
+                        Custom
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeCustomTrack(cTrack)}
+                        className="hover:text-red-200 transition-colors cursor-pointer ml-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+
+                {/* Search / Add Custom Track Input */}
+                <div className="relative pt-1">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={trackSearch}
+                      onChange={(e) => setTrackSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (trackSearch.trim()) {
+                            handleAddTrack(trackSearch.trim());
+                          }
+                        }
+                      }}
+                      placeholder="Type to search or enter custom hiring track (e.g. AI Research, Robotics, Quantum)..."
+                      className="w-full px-3.5 py-2 text-xs rounded-xl border border-[#c1c7ce] bg-white text-[#191c1e] placeholder:text-[#9199a1] focus:outline-hidden focus:border-[#0058be]"
+                    />
+                    {trackSearch && (
+                      <button
+                        type="button"
+                        onClick={() => setTrackSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#71787e] hover:text-[#191c1e] cursor-pointer"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {trackSearch.trim() && (
+                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-[#e0e3e5] rounded-xl shadow-lg max-h-48 overflow-y-auto p-1 space-y-1">
+                      {filteredTracks.slice(0, 5).map((track) => (
+                        <button
+                          key={track.id}
+                          type="button"
+                          onClick={() => {
+                            if (!selectedTalentTrackIds.includes(track.id)) {
+                              toggleTalentTrack(track.id);
+                            }
+                            setTrackSearch('');
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs font-semibold text-[#191c1e] hover:bg-[#e8f0fe] hover:text-[#0058be] rounded-lg transition-colors flex items-center justify-between cursor-pointer"
+                        >
+                          <span>{track.value}</span>
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      ))}
+
+                      {!allTalentTracks.some(
+                        (t) => t.value.toLowerCase() === trackSearch.trim().toLowerCase()
+                      ) &&
+                        !customTracks.some(
+                          (ct) => ct.toLowerCase() === trackSearch.trim().toLowerCase()
+                        ) && (
+                          <button
+                            type="button"
+                            onClick={() => handleAddTrack(trackSearch.trim())}
+                            className="w-full text-left px-3 py-2.5 text-xs font-bold text-[#0058be] bg-[#e8f0fe]/60 hover:bg-[#e8f0fe] rounded-lg transition-colors flex items-center justify-between border-t border-[#e0e3e5] cursor-pointer"
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-[#0058be]" />
+                              <span>Add &ldquo;{trackSearch.trim()}&rdquo; as custom track</span>
+                            </span>
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

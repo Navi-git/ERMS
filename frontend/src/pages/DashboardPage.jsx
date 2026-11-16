@@ -8,16 +8,27 @@ import {
 } from 'lucide-react';
 import authApi from '../api/authApi';
 import { candidateApi } from '../api/candidateApi';
+import jobApi from '../api/jobApi';
+import applicationApi from '../api/applicationApi';
+import companyApi from '../api/companyApi';
+import { useToast } from '../context/ToastContext';
 import { setUser, logout } from '../store/slices/authSlice';
 import { resolvePhotoUrl } from '../utils/imageUrl';
+import { formatSalaryRange } from '../utils/currency';
 import CandidateLayout from '../layouts/CandidateLayout';
 import RecruiterLayout from '../layouts/RecruiterLayout';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { showToast } = useToast();
   const { user, refreshToken } = useSelector((state) => state.auth);
   const [candidateProfile, setCandidateProfile] = useState(null);
+  const [recruiterJobs, setRecruiterJobs] = useState([]);
+  const [jobSummary, setJobSummary] = useState(null);
+  const [recruiterApplications, setRecruiterApplications] = useState([]);
+  const [appMetrics, setAppMetrics] = useState(null);
+  const [company, setCompany] = useState(user?.company || null);
   const [loading, setLoading] = useState(!user);
 
   useEffect(() => {
@@ -29,6 +40,21 @@ export default function DashboardPage() {
         if (response.data?.role === 'candidate') {
           const profRes = await candidateApi.getProfile();
           setCandidateProfile(profRes.data);
+        } else if (response.data?.role === 'recruiter') {
+          try {
+            const [jobsRes, appsRes, compRes] = await Promise.all([
+              jobApi.getRecruiterJobs({ limit: 10 }),
+              applicationApi.getRecruiterApplications({ limit: 100 }),
+              companyApi.getRecruiterCompany(),
+            ]);
+            setRecruiterJobs(jobsRes.data?.results || []);
+            setJobSummary(jobsRes.data?.summary || null);
+            setRecruiterApplications(appsRes.data?.results || []);
+            setAppMetrics(appsRes.data?.metrics || null);
+            setCompany(compRes.data || null);
+          } catch (recruiterErr) {
+            console.error('Failed to load recruiter metrics:', recruiterErr);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch user profile:', err);
@@ -214,6 +240,39 @@ export default function DashboardPage() {
   }
 
   // Recruiter Dashboard View (Figma Page 4)
+  const isApproved = company?.verification_status === 'APPROVED' || company?.verification_status === 'REVERIFICATION';
+  const isProfileComplete = company?.is_profile_completed ?? Boolean(
+    company?.name &&
+    company?.description &&
+    company?.industry &&
+    company?.company_size &&
+    (company?.city || company?.headquarters_address)
+  );
+  const canPostJob = Boolean(isApproved && isProfileComplete);
+
+  const handlePostJobClick = (e) => {
+    if (!canPostJob) {
+      e.preventDefault();
+      if (!isProfileComplete) {
+        showToast('Please complete your company profile before posting a new job.', 'info');
+      } else {
+        showToast('Company verification must be approved by admin before posting new jobs.', 'info');
+      }
+      navigate('/recruiter/company/profile');
+    }
+  };
+
+  const totalApps = appMetrics?.total_applicants ?? recruiterApplications.length;
+  const appliedCount = recruiterApplications.filter((a) => a.application_status === 'applied').length;
+  const screenedCount = recruiterApplications.filter(
+    (a) => a.application_status === 'reviewing' || a.application_status === 'shortlisted'
+  ).length;
+  const interviewCount = recruiterApplications.filter(
+    (a) => a.application_status === 'interview_scheduled'
+  ).length;
+  const offerCount = recruiterApplications.filter((a) => a.application_status === 'offered').length;
+  const hiredCount = recruiterApplications.filter((a) => a.application_status === 'hired').length;
+
   return (
     <RecruiterLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -229,8 +288,10 @@ export default function DashboardPage() {
           </div>
 
           <Link
-            to="/recruiter/company/profile"
+            to={canPostJob ? '/recruiter/jobs/new' : '/recruiter/company/profile'}
+            onClick={handlePostJobClick}
             className="px-5 py-2.5 bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+            title={canPostJob ? 'Post a New Job' : 'Complete company profile & verification to post jobs'}
           >
             <span>+ Post a New Job</span>
           </Link>
@@ -245,9 +306,11 @@ export default function DashboardPage() {
               <Briefcase className="w-4 h-4 text-[#0058be]" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-[#191c1e]">0</span>
+              <span className="text-3xl font-extrabold text-[#191c1e]">
+                {jobSummary?.active_jobs ?? 0}
+              </span>
               <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                +0%
+                {jobSummary?.total_jobs ?? recruiterJobs.length} total
               </span>
             </div>
             <p className="text-[11px] text-[#71787e]">Published live listings</p>
@@ -260,10 +323,16 @@ export default function DashboardPage() {
               <Users className="w-4 h-4 text-[#0058be]" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-[#191c1e]">0</span>
-              <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                +0%
-              </span>
+              <span className="text-3xl font-extrabold text-[#191c1e]">{totalApps}</span>
+              {appMetrics?.new_today > 0 ? (
+                <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                  +{appMetrics.new_today} today
+                </span>
+              ) : (
+                <span className="text-[11px] font-semibold text-[#71787e] bg-slate-50 px-1.5 py-0.5 rounded">
+                  active
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-[#71787e]">Candidate submissions received</p>
           </div>
@@ -275,12 +344,9 @@ export default function DashboardPage() {
               <Sparkles className="w-4 h-4 text-[#0058be]" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-[#191c1e]">0</span>
-              <span className="text-[11px] font-semibold text-[#71787e] bg-slate-50 px-1.5 py-0.5 rounded">
-                -0%
-              </span>
+              <span className="text-3xl font-extrabold text-[#191c1e]">{interviewCount}</span>
             </div>
-            <p className="text-[11px] text-[#71787e]">Scheduled this month</p>
+            <p className="text-[11px] text-[#71787e]">Candidate interviews</p>
           </div>
 
           {/* Avg Time to Hire */}
@@ -303,18 +369,18 @@ export default function DashboardPage() {
             <h2 className="text-sm font-bold text-[#191c1e] uppercase tracking-wider">
               Hiring Pipeline
             </h2>
-            <Link to="/recruiter/company/profile" className="text-xs text-[#0058be] font-semibold hover:underline">
-              View Details
+            <Link to="/recruiter/applicants" className="text-xs text-[#0058be] font-semibold hover:underline">
+              View All Applicants ({totalApps}) &rarr;
             </Link>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
             {[
-              { step: '1', title: 'Applied', count: '0' },
-              { step: '2', title: 'Screened', count: '0' },
-              { step: '3', title: 'Interview', count: '0' },
-              { step: '4', title: 'Offer', count: '0' },
-              { step: '5', title: 'Hired', count: '0' },
+              { step: '1', title: 'Applied', count: appliedCount },
+              { step: '2', title: 'Screened', count: screenedCount },
+              { step: '3', title: 'Interview', count: interviewCount },
+              { step: '4', title: 'Offer', count: offerCount },
+              { step: '5', title: 'Hired', count: hiredCount },
             ].map((p, idx) => (
               <div key={idx} className="p-3.5 bg-[#f7f9fb] border border-[#e0e3e5] rounded-xl text-center space-y-1">
                 <span className="w-5 h-5 rounded-full bg-[#0058be] text-white text-[10px] font-bold inline-flex items-center justify-center mx-auto">
@@ -335,20 +401,86 @@ export default function DashboardPage() {
               <h2 className="text-sm font-bold text-[#191c1e] uppercase tracking-wider">
                 Active Job Roles
               </h2>
-              <span className="text-xs text-[#71787e]">Module 6 Jobs</span>
-            </div>
-
-            <div className="p-8 text-center text-xs text-[#71787e] bg-[#f7f9fb] rounded-xl border border-dashed border-[#c3c7cb] space-y-2">
-              <Briefcase className="w-8 h-8 text-[#0058be] opacity-40 mx-auto" />
-              <p className="font-bold text-[#191c1e]">No Job Postings Yet</p>
-              <p>Complete your company verification to post and publish live job openings.</p>
               <Link
-                to="/recruiter/company/profile"
-                className="inline-block mt-1 px-4 py-1.5 bg-[#0058be] text-white text-xs font-semibold rounded-lg hover:bg-[#004ca5] transition-colors"
+                to="/recruiter/jobs"
+                className="text-xs text-[#0058be] font-semibold hover:underline"
               >
-                Go to Company Profile
+                View All Jobs ({jobSummary?.total_jobs ?? recruiterJobs.length}) &rarr;
               </Link>
             </div>
+
+            {recruiterJobs && recruiterJobs.length > 0 ? (
+              <div className="space-y-3">
+                {recruiterJobs.slice(0, 5).map((job) => (
+                  <div
+                    key={job.id}
+                    className="p-4 rounded-xl border border-[#e0e3e5] hover:border-[#0058be]/40 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/recruiter/jobs/${job.id}/overview`}
+                          className="text-sm font-bold text-[#191c1e] hover:text-[#0058be] transition-colors"
+                        >
+                          {job.job_title}
+                        </Link>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            job.job_status === 'published'
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : job.job_status === 'draft'
+                              ? 'bg-slate-100 text-slate-700'
+                              : job.job_status === 'on_hold'
+                              ? 'bg-amber-50 text-amber-700'
+                              : 'bg-red-50 text-red-700'
+                          }`}
+                        >
+                          {job.job_status === 'published' ? 'Active' : job.job_status.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[#71787e]">
+                        {job.department?.value && <span>{job.department.value}</span>}
+                        {job.location && <span>• {job.location}</span>}
+                        {(job.salary_min || job.salary_max) && (
+                          <span className="text-[#137333] font-semibold">
+                            • {formatSalaryRange(job.salary_min, job.salary_max, job.salary_currency)}
+                          </span>
+                        )}
+                        <span>• {job.openings} opening{job.openings > 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                      <Link
+                        to={`/recruiter/jobs/${job.id}/pipeline`}
+                        className="px-3 py-1.5 rounded-lg border border-[#c1c7ce] text-xs font-semibold text-[#191c1e] hover:bg-slate-50 transition-colors"
+                      >
+                        Pipeline
+                      </Link>
+                      <Link
+                        to={`/recruiter/jobs/${job.id}/overview`}
+                        className="px-3 py-1.5 rounded-lg bg-[#0058be] text-xs font-semibold text-white hover:bg-[#004ca5] transition-colors"
+                      >
+                        Overview
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 text-center text-xs text-[#71787e] bg-[#f7f9fb] rounded-xl border border-dashed border-[#c3c7cb] space-y-2">
+                <Briefcase className="w-8 h-8 text-[#0058be] opacity-40 mx-auto" />
+                <p className="font-bold text-[#191c1e]">No Job Postings Yet</p>
+                <p>Create your first job posting to start receiving candidates and hiring talent.</p>
+                <Link
+                  to={canPostJob ? '/recruiter/jobs/new' : '/recruiter/company/profile'}
+                  onClick={handlePostJobClick}
+                  className="inline-block mt-1 px-4 py-1.5 bg-[#0058be] text-white text-xs font-semibold rounded-lg hover:bg-[#004ca5] transition-colors"
+                  title={canPostJob ? 'Post a New Job' : 'Complete company profile & verification to post jobs'}
+                >
+                  + Post a New Job
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Recent Activity (1 Col) */}

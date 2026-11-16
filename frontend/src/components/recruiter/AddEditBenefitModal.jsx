@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, AlertCircle } from 'lucide-react';
+import MarkdownEditor from '../common/MarkdownEditor';
 
 export default function AddEditBenefitModal({ isOpen, onClose, onSave, benefit }) {
   const [name, setName] = useState('');
@@ -103,18 +104,15 @@ export default function AddEditBenefitModal({ isOpen, onClose, onSave, benefit }
           </div>
 
           {/* Description */}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-[#191c1e]">
-              Custom Description
-            </label>
-            <textarea
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. Work from anywhere in the world, with flexible hours tailored to your lifestyle."
-              className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] placeholder-[#71787e] focus:outline-none focus:border-[#0058be] focus:ring-2 focus:ring-[#0058be]/20 leading-relaxed"
-            />
-          </div>
+          <MarkdownEditor
+            label="Custom Description"
+            labelClassName="text-xs font-bold text-[#191c1e]"
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="e.g. Work from anywhere in the world, with flexible hours tailored to your lifestyle."
+            textareaClassName="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] placeholder-[#71787e] focus:outline-none focus:border-[#0058be] leading-relaxed"
+          />
 
           {/* Display Order & Active Toggle */}
           <div className="grid grid-cols-2 gap-4 pt-1">

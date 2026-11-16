@@ -130,7 +130,7 @@ class PublicCompanyDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        serializer = PublicCompanyDetailSerializer(company)
+        serializer = PublicCompanyDetailSerializer(company, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

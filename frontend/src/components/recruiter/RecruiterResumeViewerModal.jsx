@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Download,
@@ -13,7 +13,11 @@ import {
   Phone,
   MapPin,
   ExternalLink,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
+import { candidateApi } from '../../api/candidateApi';
+import { useToast } from '../../context/ToastContext';
 
 export default function RecruiterResumeViewerModal({
   isOpen,
@@ -22,13 +26,105 @@ export default function RecruiterResumeViewerModal({
   onAdvance,
   onAddNote,
 }) {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('formatted'); // 'formatted' | 'raw' | 'pdf'
 
-  if (!isOpen || !application) return null;
+  const [fileBlobUrl, setFileBlobUrl] = useState(null);
+  const [loadingFile, setLoadingFile] = useState(false);
+  const [fileError, setFileError] = useState(null);
+  const [downloading, setDownloading] = useState(false);
 
-  const candidate = application.candidate_profile || application.candidate || {};
-  const resume = application.resume || {};
-  const job = application.job || {};
+  const candidate = application?.candidate_profile || application?.candidate || {};
+  const resume = application?.resume || {};
+  const job = application?.job || {};
+
+  const isPdf =
+    resume.file_type === 'application/pdf' ||
+    resume.file_name?.toLowerCase().endsWith('.pdf') ||
+    (!resume.file_name?.toLowerCase().endsWith('.docx') &&
+      !resume.file_name?.toLowerCase().endsWith('.doc'));
+
+  // Load resume blob for inline original file preview
+  useEffect(() => {
+    let isMounted = true;
+    let createdUrl = null;
+
+    const loadResumeFile = async () => {
+      if (!isOpen || !resume?.id) return;
+      if (activeTab === 'pdf' && !fileBlobUrl && !loadingFile) {
+        setLoadingFile(true);
+        setFileError(null);
+        try {
+          const res = await candidateApi.downloadResume(resume.id);
+          const mimeType = resume.file_type || res.headers?.['content-type'] || 'application/pdf';
+          const blob = new Blob([res.data], { type: mimeType });
+          createdUrl = window.URL.createObjectURL(blob);
+          if (isMounted) {
+            setFileBlobUrl(createdUrl);
+          }
+        } catch (err) {
+          console.error('Failed to load resume file:', err);
+          if (isMounted) {
+            setFileError('Could not load the original resume file.');
+          }
+        } finally {
+          if (isMounted) {
+            setLoadingFile(false);
+          }
+        }
+      }
+    };
+
+    loadResumeFile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab, resume?.id, isOpen]);
+
+  // Clean up Object URL when modal closes or unmounts
+  useEffect(() => {
+    if (!isOpen && fileBlobUrl) {
+      window.URL.revokeObjectURL(fileBlobUrl);
+      setFileBlobUrl(null);
+      setFileError(null);
+    }
+  }, [isOpen]);
+
+  const handleDownload = async () => {
+    if (!resume?.id) {
+      showToast('No resume file associated with this application.', 'error');
+      return;
+    }
+
+    setDownloading(true);
+    try {
+      const res = await candidateApi.downloadResume(resume.id);
+      const mimeType = resume.file_type || res.headers?.['content-type'] || 'application/pdf';
+      const blob = new Blob([res.data], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const ext = resume.file_name?.split('.').pop() || (mimeType.includes('pdf') ? 'pdf' : 'docx');
+      const baseName = candidate.full_name
+        ? `${candidate.full_name.replace(/\s+/g, '_')}_Resume`
+        : 'Resume';
+      const downloadName = resume.file_name || `${baseName}.${ext}`;
+      link.setAttribute('download', downloadName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showToast('Resume downloaded successfully.', 'success');
+    } catch (err) {
+      console.error('Failed to download resume:', err);
+      showToast('Failed to download resume file.', 'error');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  if (!isOpen || !application) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
@@ -38,7 +134,7 @@ export default function RecruiterResumeViewerModal({
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="p-1.5 rounded-full text-[#71787e] hover:bg-[#f1f4f6] hover:text-[#191c1e] transition-colors"
+              className="p-1.5 rounded-full text-[#71787e] hover:bg-[#f1f4f6] hover:text-[#191c1e] transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -55,17 +151,22 @@ export default function RecruiterResumeViewerModal({
 
           {/* Action Buttons (Figma Page 8) */}
           <div className="flex items-center gap-2.5">
-            {resume.file_url && (
-              <a
-                href={resume.file_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                download
-                className="px-3.5 py-2 rounded-xl border border-[#c1c7ce] text-xs font-bold text-[#41474d] hover:bg-[#f1f4f6] transition-colors flex items-center gap-1.5 shadow-xs"
+            {resume.id && (
+              <button
+                type="button"
+                onClick={handleDownload}
+                disabled={downloading}
+                className="px-3.5 py-2 rounded-xl border border-[#c1c7ce] text-xs font-bold text-[#41474d] hover:bg-[#f1f4f6] transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download PDF</span>
-              </a>
+                {downloading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#0058be]" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {downloading ? 'Downloading...' : isPdf ? 'Download PDF' : 'Download Resume'}
+                </span>
+              </button>
             )}
 
             {onAdvance && (
@@ -100,7 +201,7 @@ export default function RecruiterResumeViewerModal({
             </span>
             <button
               onClick={() => setActiveTab('formatted')}
-              className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors ${
+              className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors cursor-pointer ${
                 activeTab === 'formatted'
                   ? 'bg-white text-[#0058be] shadow-xs border border-[#e0e3e5]'
                   : 'text-[#71787e] hover:text-[#191c1e]'
@@ -111,7 +212,7 @@ export default function RecruiterResumeViewerModal({
             {resume.extracted_text && (
               <button
                 onClick={() => setActiveTab('raw')}
-                className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors ${
+                className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors cursor-pointer ${
                   activeTab === 'raw'
                     ? 'bg-white text-[#0058be] shadow-xs border border-[#e0e3e5]'
                     : 'text-[#71787e] hover:text-[#191c1e]'
@@ -120,10 +221,10 @@ export default function RecruiterResumeViewerModal({
                 Extracted Text
               </button>
             )}
-            {resume.file_url && (
+            {resume.id && (
               <button
                 onClick={() => setActiveTab('pdf')}
-                className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors ${
+                className={`px-3 py-1 rounded-lg font-bold text-xs transition-colors cursor-pointer ${
                   activeTab === 'pdf'
                     ? 'bg-white text-[#0058be] shadow-xs border border-[#e0e3e5]'
                     : 'text-[#71787e] hover:text-[#191c1e]'
@@ -140,15 +241,115 @@ export default function RecruiterResumeViewerModal({
         </div>
 
         {/* Document Content Viewport (Figma Page 8) */}
-        <div className="flex-1 overflow-y-auto p-6 sm:p-10 bg-[#f7f9fb]">
-          {activeTab === 'pdf' && resume.file_url ? (
-            <div className="w-full h-full bg-white rounded-2xl shadow-xs border border-[#e0e3e5] overflow-hidden">
-              <iframe
-                src={resume.file_url}
-                title="Candidate Resume"
-                className="w-full h-full min-h-[600px] border-none"
-              />
-            </div>
+        <div className="flex-1 overflow-y-auto p-6 sm:p-10 bg-[#f7f9fb] flex flex-col">
+          {activeTab === 'pdf' ? (
+            loadingFile ? (
+              <div className="w-full h-full min-h-[500px] flex flex-col items-center justify-center gap-3 bg-white rounded-2xl border border-[#e0e3e5]">
+                <Loader2 className="w-8 h-8 animate-spin text-[#0058be]" />
+                <p className="text-xs font-semibold text-[#71787e]">
+                  Loading original resume document...
+                </p>
+              </div>
+            ) : fileError ? (
+              <div className="w-full h-full min-h-[400px] flex flex-col items-center justify-center gap-3 bg-white rounded-2xl border border-[#e0e3e5] p-8 text-center my-auto">
+                <AlertCircle className="w-10 h-10 text-rose-600" />
+                <p className="text-sm font-bold text-[#191c1e]">Failed to load resume document</p>
+                <p className="text-xs text-[#71787e]">{fileError}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFileBlobUrl(null);
+                    setFileError(null);
+                  }}
+                  className="mt-2 px-4 py-2 rounded-xl bg-[#0058be] text-white text-xs font-bold cursor-pointer"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : fileBlobUrl && isPdf ? (
+              <div className="w-full h-full flex flex-col bg-white rounded-2xl shadow-xs border border-[#e0e3e5] overflow-hidden">
+                {/* PDF Toolbar */}
+                <div className="px-4 py-2.5 bg-[#f1f4f6] border-b border-[#e0e3e5] flex items-center justify-between text-xs shrink-0">
+                  <div className="flex items-center gap-2 text-[#41474d] font-semibold">
+                    <FileText className="w-4 h-4 text-[#0058be]" />
+                    <span className="truncate max-w-xs">{resume.file_name || 'Resume.pdf'}</span>
+                    {resume.file_size ? (
+                      <span className="text-[11px] text-[#71787e]">
+                        ({Math.round(resume.file_size / 1024)} KB)
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => window.open(fileBlobUrl, '_blank')}
+                      className="px-2.5 py-1 rounded-lg border border-[#c1c7ce] bg-white text-xs font-bold text-[#41474d] hover:bg-slate-50 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Open full PDF in a new tab"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-[#0058be]" />
+                      <span>Open in New Tab</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownload}
+                      disabled={downloading}
+                      className="px-2.5 py-1 rounded-lg bg-[#0058be] text-xs font-bold text-white hover:bg-[#004ca5] flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* PDF Viewer */}
+                <iframe
+                  src={fileBlobUrl}
+                  title="Candidate Original Resume"
+                  className="w-full flex-1 min-h-[600px] border-none"
+                />
+              </div>
+            ) : (
+              /* Non-PDF File (e.g. Word DOCX) */
+              <div className="max-w-xl mx-auto bg-white p-8 sm:p-12 rounded-2xl shadow-xs border border-[#e0e3e5] text-center space-y-4 my-auto">
+                <div className="w-16 h-16 rounded-2xl bg-blue-50 text-[#0058be] flex items-center justify-center mx-auto">
+                  <FileText className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-[#191c1e]">
+                    {resume.file_name || 'Original Resume Document'}
+                  </h3>
+                  <p className="text-xs text-[#71787e] mt-1">
+                    Word Document ({resume.file_name?.split('.').pop()?.toUpperCase() || 'DOCX'})
+                    {resume.file_size ? ` • ${Math.round(resume.file_size / 1024)} KB` : ''}
+                  </p>
+                </div>
+                <p className="text-xs text-[#5f6368] leading-relaxed max-w-md mx-auto">
+                  Word documents cannot be previewed natively in the browser frame. You can
+                  download the original file to view on your device, or review the extracted text
+                  and structured profile in the tabs above.
+                </p>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="px-5 py-2.5 rounded-xl bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-bold shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>{downloading ? 'Downloading...' : 'Download Document'}</span>
+                  </button>
+                  {resume.extracted_text && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('raw')}
+                      className="px-4 py-2.5 rounded-xl border border-[#c1c7ce] text-xs font-bold text-[#41474d] hover:bg-[#f1f4f6] transition-colors cursor-pointer"
+                    >
+                      View Extracted Text
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
           ) : activeTab === 'raw' && resume.extracted_text ? (
             <div className="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-xs border border-[#e0e3e5] font-mono text-xs whitespace-pre-wrap leading-relaxed text-[#191c1e]">
               {resume.extracted_text}
@@ -290,4 +491,3 @@ export default function RecruiterResumeViewerModal({
     </div>
   );
 }
-

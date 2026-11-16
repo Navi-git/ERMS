@@ -107,7 +107,7 @@ class Job(models.Model):
     # Compensation
     salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    salary_currency = models.CharField(max_length=3, default="USD")
+    salary_currency = models.CharField(max_length=3, default="INR")
 
     openings = models.IntegerField(default=1)
     accepts_cover_letter = models.BooleanField(default=False)

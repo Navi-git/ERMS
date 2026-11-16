@@ -30,26 +30,31 @@ def post(api, payload):
 
 
 class TestCandidateRegistration:
-    def test_success_creates_user_security_and_otp(self, api):
+    def test_success_stages_pending_and_sends_otp_without_creating_user(self, api):
         r = post(api, candidate(email="Jane@Example.com"))
         assert r.status_code == 201
         assert r.data["user"]["email"] == "jane@example.com"
-        assert "password" not in r.data["user"] and "password_hash" not in r.data["user"]
 
-        user = User.objects.get(email="jane@example.com")
+        # User is NOT created in database yet
+        assert not User.objects.filter(email="jane@example.com").exists()
+        assert not UserSecurity.objects.exists()
+        assert not Company.objects.exists()
+
+        otp = OtpVerification.objects.get(destination="jane@example.com")
+        assert otp.purpose == OtpPurpose.EMAIL_VERIFICATION
+        assert len(otp.otp_code) == 6 and otp.otp_code.isdigit()
+        assert otp.verified_at is None and otp.expires_at > otp.created_at
+        assert len(mail.outbox) == 1 and otp.otp_code in mail.outbox[0].body
+
+        # Verify OTP now creates user atomically
+        user = services.verify_email_otp(email="jane@example.com", code=otp.otp_code)
         assert user.role == "candidate" and user.full_name == "Jane Doe"
-        assert user.is_email_verified is False
+        assert user.is_email_verified is True
         assert user.password != PASSWORD and user.check_password(PASSWORD)
         assert user.terms_accepted_at and user.terms_version == "1.0"
         assert user.privacy_accepted_at and user.privacy_version == "1.0"
         assert UserSecurity.objects.filter(user=user).exists()
         assert not Company.objects.exists()
-
-        otp = OtpVerification.objects.get(destination="jane@example.com")
-        assert otp.purpose == OtpPurpose.EMAIL_VERIFICATION and otp.user == user
-        assert len(otp.otp_code) == 6 and otp.otp_code.isdigit()
-        assert otp.verified_at is None and otp.expires_at > otp.created_at
-        assert len(mail.outbox) == 1 and otp.otp_code in mail.outbox[0].body
 
     def test_full_name_required_for_candidate(self, api):
         payload = candidate()
@@ -60,18 +65,25 @@ class TestCandidateRegistration:
 
 
 class TestRecruiterRegistration:
-    def test_success_creates_company_with_company_name_only(self, api):
+    def test_success_creates_company_only_after_otp_verification(self, api):
         r = post(api, recruiter())
         assert r.status_code == 201
-        user = User.objects.get(email="hr@acme.com")
-        assert user.role == "recruiter" and user.full_name == "Acme Corp"  # decision B
+        # Neither user nor company exists yet
+        assert not User.objects.filter(email="hr@acme.com").exists()
+        assert not Company.objects.exists()
+
+        otp = OtpVerification.objects.get(destination="hr@acme.com")
+        user = services.verify_email_otp(email="hr@acme.com", code=otp.otp_code)
+        assert user.role == "recruiter" and user.full_name == "Acme Corp"
         company = Company.objects.get()
         assert company.name == "Acme Corp" and company.admin_user == user
-        assert company.verification_status == "PENDING" and company.industry is None
+        assert company.verification_status == "DRAFT"
 
     def test_explicit_full_name_is_kept(self, api):
         post(api, recruiter(full_name="Priya Nair"))
-        assert User.objects.get().full_name == "Priya Nair"
+        otp = OtpVerification.objects.get(destination="hr@acme.com")
+        user = services.verify_email_otp(email="hr@acme.com", code=otp.otp_code)
+        assert user.full_name == "Priya Nair"
 
     def test_company_name_required(self, api):
         payload = recruiter()
@@ -102,16 +114,18 @@ class TestValidation:
 class TestDuplicates:
     def test_verified_email_is_rejected(self, api):
         post(api, candidate())
-        User.objects.update(is_email_verified=True)
+        otp = OtpVerification.objects.get(destination="jane@example.com")
+        services.verify_email_otp(email="jane@example.com", code=otp.otp_code)
         r = post(api, candidate(email="JANE@example.com"))
         assert r.status_code == 409 and r.data["code"] == "email_already_registered"
         assert User.objects.count() == 1
 
-    def test_unverified_email_gets_specific_code(self, api):
+    def test_unverified_re_registration_refreshes_pending_without_conflict(self, api):
         post(api, candidate())
+        assert not User.objects.exists()
         r = post(api, candidate())
-        assert r.status_code == 409 and r.data["code"] == "email_not_verified"
-        assert User.objects.count() == 1
+        assert r.status_code == 201
+        assert not User.objects.exists()
 
 
 class TestAtomicity:

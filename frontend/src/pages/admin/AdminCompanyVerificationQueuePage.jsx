@@ -31,6 +31,7 @@ export default function AdminCompanyVerificationQueuePage() {
     total: 0,
     pending: 0,
     under_review: 0,
+    reverification: 0,
     approved: 0,
     rejected: 0,
   });
@@ -112,6 +113,7 @@ export default function AdminCompanyVerificationQueuePage() {
     { key: 'ALL', label: 'All Companies', count: stats.total },
     { key: 'PENDING', label: 'Pending', count: stats.pending },
     { key: 'UNDER_REVIEW', label: 'Under Review', count: stats.under_review },
+    { key: 'REVERIFICATION', label: 'Reverification', count: stats.reverification || 0 },
     { key: 'APPROVED', label: 'Approved', count: stats.approved },
     { key: 'REJECTED', label: 'Rejected', count: stats.rejected },
   ];
@@ -254,6 +256,7 @@ export default function AdminCompanyVerificationQueuePage() {
                     const status = company.status;
                     const isPending = status === 'PENDING';
                     const isUnderReview = status === 'UNDER_REVIEW';
+                    const isReverification = status === 'REVERIFICATION';
                     const isApproved = status === 'APPROVED';
                     const isRejected = status === 'REJECTED';
 
@@ -332,6 +335,12 @@ export default function AdminCompanyVerificationQueuePage() {
                               <span>Under Review</span>
                             </span>
                           )}
+                          {isReverification && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[11px] font-semibold border border-purple-200">
+                              <Clock className="w-3 h-3 text-purple-600" />
+                              <span>Reverification</span>
+                            </span>
+                          )}
                           {isApproved && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-semibold border border-emerald-200">
                               <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -356,10 +365,12 @@ export default function AdminCompanyVerificationQueuePage() {
                                 ? 'bg-[#f1f4f6] hover:bg-[#e0e3e5] text-[#191c1e]'
                                 : isUnderReview
                                 ? 'bg-[#0058be] hover:bg-[#004ca5] text-white'
+                                : isReverification
+                                ? 'bg-purple-600 hover:bg-purple-700 text-white'
                                 : 'bg-[#191c1e] hover:bg-black text-white'
                             }`}
                           >
-                            <span>{isUnderReview ? 'Continue' : isApproved ? 'View' : 'Review'}</span>
+                            <span>{isUnderReview ? 'Continue' : isApproved ? 'View' : isReverification ? 'Audit' : 'Review'}</span>
                             <ArrowRight className="w-3 h-3" />
                           </button>
                         </td>

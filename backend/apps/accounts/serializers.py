@@ -84,7 +84,19 @@ class MeSerializer(serializers.ModelSerializer):
         company = Company.objects.filter(admin_user=user).first()
         if company is None:
             return None
-        return {"id": company.id, "name": company.name, "verification_status": company.verification_status}
+        is_completed = bool(
+            company.name
+            and company.description
+            and company.industry_id
+            and company.company_size
+            and (company.city or company.headquarters_address)
+        )
+        return {
+            "id": company.id,
+            "name": company.name,
+            "verification_status": company.verification_status,
+            "is_profile_completed": is_completed,
+        }
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):

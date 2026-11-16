@@ -23,6 +23,8 @@ import jobApi from '../../api/jobApi';
 import masterDataApi from '../../api/masterDataApi';
 import companyApi from '../../api/companyApi';
 import { useToast } from '../../context/ToastContext';
+import { getCurrencySymbol } from '../../utils/currency';
+import MarkdownEditor from '../../components/common/MarkdownEditor';
 
 export default function RecruiterCreateJobPage() {
   const navigate = useNavigate();
@@ -46,7 +48,7 @@ export default function RecruiterCreateJobPage() {
     responsibilities: '',
     salary_min: '',
     salary_max: '',
-    salary_currency: 'USD',
+    salary_currency: 'INR',
     accepts_cover_letter: false,
     promote_on_job_boards: false,
     application_deadline: '',
@@ -99,7 +101,27 @@ export default function RecruiterCreateJobPage() {
           masterDataApi.getCategoryItems('skill'),
         ]);
 
-        setCompany(compRes.data);
+        const comp = compRes.data;
+        setCompany(comp);
+
+        const isApproved = comp?.verification_status === 'APPROVED' || comp?.verification_status === 'REVERIFICATION';
+        const isProfileComplete = comp?.is_profile_completed ?? Boolean(
+          comp?.name &&
+          comp?.description &&
+          comp?.industry &&
+          comp?.company_size &&
+          (comp?.city || comp?.headquarters_address)
+        );
+
+        if (!isApproved || !isProfileComplete) {
+          if (!isProfileComplete) {
+            showToast('Please complete your company profile before creating job postings.', 'info');
+          } else {
+            showToast('Company verification must be approved by admin before creating jobs.', 'info');
+          }
+          navigate('/recruiter/company/profile', { replace: true });
+          return;
+        }
         setCategories(catRes.data?.results || catRes.data || []);
         setDepartments(deptRes.data?.results || deptRes.data || []);
         setExperienceLevels(expRes.data?.results || expRes.data || []);
@@ -121,7 +143,7 @@ export default function RecruiterCreateJobPage() {
   };
 
   const handleAddSkill = (skill) => {
-    if (selectedSkills.some((s) => s.skill_id === skill.id)) return;
+    if (selectedSkills.some((s) => s.skill_id === skill.id || s.skill_name?.toLowerCase() === skill.value.toLowerCase())) return;
     setSelectedSkills([
       ...selectedSkills,
       {
@@ -134,13 +156,48 @@ export default function RecruiterCreateJobPage() {
     setSkillSearch('');
   };
 
-  const handleRemoveSkill = (skillId) => {
-    setSelectedSkills(selectedSkills.filter((s) => s.skill_id !== skillId));
+  const handleAddCustomSkill = (name) => {
+    const trimmed = (name || skillSearch).trim();
+    if (!trimmed) return;
+    if (selectedSkills.some((s) => s.skill_name?.toLowerCase() === trimmed.toLowerCase())) {
+      setSkillSearch('');
+      return;
+    }
+    const matchCatalog = availableSkills.find(
+      (s) => s.value.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (matchCatalog) {
+      handleAddSkill(matchCatalog);
+      return;
+    }
+    setSelectedSkills([
+      ...selectedSkills,
+      {
+        skill_id: null,
+        skill_name: trimmed,
+        is_required: true,
+        proficiency_level: 'intermediate',
+      },
+    ]);
+    setSkillSearch('');
   };
 
-  const handleSkillPropChange = (skillId, field, val) => {
+  const handleRemoveSkill = (skill) => {
     setSelectedSkills((prev) =>
-      prev.map((s) => (s.skill_id === skillId ? { ...s, [field]: val } : s))
+      prev.filter((s) =>
+        s.skill_id ? s.skill_id !== skill.skill_id : s.skill_name !== skill.skill_name
+      )
+    );
+  };
+
+  const handleSkillPropChange = (skill, field, val) => {
+    setSelectedSkills((prev) =>
+      prev.map((s) => {
+        const isMatch = s.skill_id
+          ? s.skill_id === skill.skill_id
+          : s.skill_name === skill.skill_name;
+        return isMatch ? { ...s, [field]: val } : s;
+      })
     );
   };
 
@@ -162,6 +219,18 @@ export default function RecruiterCreateJobPage() {
     if (!payload.salary_min) delete payload.salary_min;
     if (!payload.salary_max) delete payload.salary_max;
     if (!payload.application_deadline) delete payload.application_deadline;
+
+    if (pipelineStages && pipelineStages.length > 0) {
+      payload.stages = pipelineStages.map((s, idx) => ({
+        name: s.name,
+        stage_type: s.stage_type || 'custom',
+        description: s.description || '',
+        is_required: s.is_required ?? true,
+        is_active: s.is_active ?? true,
+        stage_order: idx + 1,
+      }));
+    }
+
     return payload;
   };
 
@@ -234,12 +303,14 @@ export default function RecruiterCreateJobPage() {
     (s) =>
       skillSearch &&
       s.value.toLowerCase().includes(skillSearch.toLowerCase()) &&
-      !selectedSkills.some((sel) => sel.skill_id === s.id)
+      !selectedSkills.some(
+        (sel) => sel.skill_id === s.id || sel.skill_name?.toLowerCase() === s.value.toLowerCase()
+      )
   );
 
   return (
     <RecruiterLayout>
-      <div className="max-w-6xl mx-auto space-y-8 pb-12">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 pb-12">
         {/* Top Header & Actions (Figma Page 4) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#e0e3e5]">
           <div>
@@ -438,47 +509,33 @@ export default function RecruiterCreateJobPage() {
                 <span>Job Description & Role Scope</span>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase text-[#71787e] mb-1.5 tracking-wider">
-                  Role Overview * (Markdown Supported)
-                </label>
-                <textarea
-                  rows={4}
-                  name="job_description"
-                  value={formData.job_description}
-                  onChange={handleChange}
-                  placeholder="Describe the day-to-day responsibilities, mission, and impact of this role..."
-                  className="w-full px-4 py-3 rounded-2xl border border-[#c1c7ce] bg-white text-sm text-[#191c1e] placeholder:text-[#9199a1] focus:outline-hidden focus:border-[#0058be] font-sans"
-                />
-              </div>
+              <MarkdownEditor
+                label="Role Overview"
+                required
+                name="job_description"
+                value={formData.job_description}
+                onChange={handleChange}
+                placeholder="Describe the day-to-day responsibilities, mission, and impact of this role..."
+                rows={4}
+              />
 
-              <div>
-                <label className="block text-xs font-semibold uppercase text-[#71787e] mb-1.5 tracking-wider">
-                  Key Requirements (Markdown Supported)
-                </label>
-                <textarea
-                  rows={3}
-                  name="requirements"
-                  value={formData.requirements}
-                  onChange={handleChange}
-                  placeholder="List the necessary skills, experience, and qualifications (use bullet points)..."
-                  className="w-full px-4 py-3 rounded-2xl border border-[#c1c7ce] bg-white text-sm text-[#191c1e] placeholder:text-[#9199a1] focus:outline-hidden focus:border-[#0058be]"
-                />
-              </div>
+              <MarkdownEditor
+                label="Key Requirements"
+                name="requirements"
+                value={formData.requirements}
+                onChange={handleChange}
+                placeholder="List the necessary skills, experience, and qualifications (use bullet points)..."
+                rows={3}
+              />
 
-              <div>
-                <label className="block text-xs font-semibold uppercase text-[#71787e] mb-1.5 tracking-wider">
-                  Key Responsibilities (Markdown Supported)
-                </label>
-                <textarea
-                  rows={3}
-                  name="responsibilities"
-                  value={formData.responsibilities}
-                  onChange={handleChange}
-                  placeholder="Outline key deliverables and project responsibilities..."
-                  className="w-full px-4 py-3 rounded-2xl border border-[#c1c7ce] bg-white text-sm text-[#191c1e] placeholder:text-[#9199a1] focus:outline-hidden focus:border-[#0058be]"
-                />
-              </div>
+              <MarkdownEditor
+                label="Key Responsibilities"
+                name="responsibilities"
+                value={formData.responsibilities}
+                onChange={handleChange}
+                placeholder="Outline key deliverables and project responsibilities..."
+                rows={3}
+              />
             </div>
 
             {/* Section 3: Skills & Competencies (Conflict 4 Resolution) */}
@@ -495,22 +552,48 @@ export default function RecruiterCreateJobPage() {
                   type="text"
                   value={skillSearch}
                   onChange={(e) => setSkillSearch(e.target.value)}
-                  placeholder="Type to search and add skills (e.g. React, Python, Figma, Docker)..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (filteredSkills.length > 0) {
+                        handleAddSkill(filteredSkills[0]);
+                      } else if (skillSearch.trim()) {
+                        handleAddCustomSkill(skillSearch.trim());
+                      }
+                    }
+                  }}
+                  placeholder="Type to search or enter custom skill (e.g. React, Python, FastAPI)..."
                   className="w-full px-4 py-2.5 rounded-xl border border-[#c1c7ce] bg-white text-sm text-[#191c1e] focus:outline-hidden focus:border-[#0058be]"
                 />
-                {filteredSkills.length > 0 && (
-                  <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-[#e0e3e5] rounded-xl shadow-lg max-h-48 overflow-y-auto p-1 space-y-1">
-                    {filteredSkills.slice(0, 8).map((sk) => (
+                {skillSearch.trim() && (
+                  <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-[#e0e3e5] rounded-xl shadow-lg max-h-56 overflow-y-auto p-1 space-y-1">
+                    {filteredSkills.slice(0, 6).map((sk) => (
                       <button
                         key={sk.id}
                         type="button"
                         onClick={() => handleAddSkill(sk)}
-                        className="w-full text-left px-3 py-2 text-xs font-semibold text-[#191c1e] hover:bg-[#e8f0fe] hover:text-[#0058be] rounded-lg transition-colors flex items-center justify-between"
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-[#191c1e] hover:bg-[#e8f0fe] hover:text-[#0058be] rounded-lg transition-colors flex items-center justify-between cursor-pointer"
                       >
                         <span>{sk.value}</span>
                         <Plus className="w-3.5 h-3.5" />
                       </button>
                     ))}
+
+                    {!availableSkills.some(
+                      (s) => s.value.toLowerCase() === skillSearch.trim().toLowerCase()
+                    ) && (
+                      <button
+                        type="button"
+                        onClick={() => handleAddCustomSkill(skillSearch.trim())}
+                        className="w-full text-left px-3 py-2.5 text-xs font-bold text-[#0058be] bg-[#e8f0fe]/60 hover:bg-[#e8f0fe] rounded-lg transition-colors flex items-center justify-between border-t border-[#e0e3e5] cursor-pointer"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-[#0058be]" />
+                          <span>Add &ldquo;{skillSearch.trim()}&rdquo; as custom skill</span>
+                        </span>
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -519,12 +602,19 @@ export default function RecruiterCreateJobPage() {
                 <div className="space-y-2.5">
                   {selectedSkills.map((sk) => (
                     <div
-                      key={sk.skill_id}
+                      key={sk.skill_id || sk.skill_name}
                       className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#f7f9fb] border border-[#e0e3e5]"
                     >
-                      <span className="font-bold text-xs text-[#191c1e]">
-                        {sk.skill_name}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-[#191c1e]">
+                          {sk.skill_name}
+                        </span>
+                        {!sk.skill_id && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[#e8f0fe] text-[#0058be]">
+                            Custom
+                          </span>
+                        )}
+                      </div>
 
                       <div className="flex items-center gap-4">
                         <label className="flex items-center gap-1.5 text-xs text-[#41474d] cursor-pointer">
@@ -532,7 +622,7 @@ export default function RecruiterCreateJobPage() {
                             type="checkbox"
                             checked={sk.is_required}
                             onChange={(e) =>
-                              handleSkillPropChange(sk.skill_id, 'is_required', e.target.checked)
+                              handleSkillPropChange(sk, 'is_required', e.target.checked)
                             }
                             className="w-3.5 h-3.5 rounded text-[#0058be]"
                           />
@@ -542,7 +632,7 @@ export default function RecruiterCreateJobPage() {
                         <select
                           value={sk.proficiency_level}
                           onChange={(e) =>
-                            handleSkillPropChange(sk.skill_id, 'proficiency_level', e.target.value)
+                            handleSkillPropChange(sk, 'proficiency_level', e.target.value)
                           }
                           className="px-2 py-1 rounded-lg border border-[#c1c7ce] bg-white text-xs text-[#191c1e]"
                         >
@@ -554,8 +644,8 @@ export default function RecruiterCreateJobPage() {
 
                         <button
                           type="button"
-                          onClick={() => handleRemoveSkill(sk.skill_id)}
-                          className="p-1 text-[#71787e] hover:text-[#ba1a1a]"
+                          onClick={() => handleRemoveSkill(sk)}
+                          className="p-1 text-[#71787e] hover:text-[#ba1a1a] cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -565,7 +655,7 @@ export default function RecruiterCreateJobPage() {
                 </div>
               ) : (
                 <p className="text-xs text-[#71787e] italic">
-                  No skills added yet. At least one required skill is recommended before publishing.
+                  No skills added yet. Search or enter at least 1 core technology or skill.
                 </p>
               )}
             </div>
@@ -582,28 +672,28 @@ export default function RecruiterCreateJobPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase text-[#71787e] mb-1.5 tracking-wider">
-                    Salary Min ($)
+                    Salary Min ({getCurrencySymbol(formData.salary_currency)})
                   </label>
                   <input
                     type="number"
                     name="salary_min"
                     value={formData.salary_min}
                     onChange={handleChange}
-                    placeholder="e.g. 120000"
+                    placeholder="e.g. 600000"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#c1c7ce] bg-white text-sm text-[#191c1e] focus:outline-hidden focus:border-[#0058be]"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold uppercase text-[#71787e] mb-1.5 tracking-wider">
-                    Salary Max ($)
+                    Salary Max ({getCurrencySymbol(formData.salary_currency)})
                   </label>
                   <input
                     type="number"
                     name="salary_max"
                     value={formData.salary_max}
                     onChange={handleChange}
-                    placeholder="e.g. 160000"
+                    placeholder="e.g. 1200000"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#c1c7ce] bg-white text-sm text-[#191c1e] focus:outline-hidden focus:border-[#0058be]"
                   />
                 </div>
@@ -618,10 +708,11 @@ export default function RecruiterCreateJobPage() {
                     onChange={handleChange}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#c1c7ce] bg-white text-sm text-[#191c1e] focus:outline-hidden focus:border-[#0058be]"
                   >
+                    <option value="INR">INR (₹)</option>
                     <option value="USD">USD ($)</option>
                     <option value="EUR">EUR (€)</option>
                     <option value="GBP">GBP (£)</option>
-                    <option value="CAD">CAD ($)</option>
+                    <option value="CAD">CAD (CA$)</option>
                   </select>
                 </div>
               </div>
