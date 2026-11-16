@@ -341,8 +341,9 @@ class CandidateResumeDownloadView(APIView):
     def get(self, request, pk):
         try:
             file_path, file_name, file_type = get_resume_for_download(request.user, pk)
+            disposition = "inline" if request.query_params.get("view") == "inline" else "attachment"
             response = FileResponse(open(file_path, "rb"), content_type=file_type)
-            response["Content-Disposition"] = f'attachment; filename="{file_name}"'
+            response["Content-Disposition"] = f'{disposition}; filename="{file_name}"'
             return response
         except (DRFPermissionDenied, DjangoPermissionDenied) as pe:
             return Response({"detail": str(pe)}, status=status.HTTP_403_FORBIDDEN)

@@ -10,6 +10,7 @@ import {
   Send,
   Sparkles,
 } from 'lucide-react';
+import MarkdownEditor from '../common/MarkdownEditor';
 
 export default function WriteCompanyReviewModal({ isOpen, onClose, company, onSubmitSuccess }) {
   const [rating, setRating] = useState(5);
@@ -176,25 +177,18 @@ export default function WriteCompanyReviewModal({ isOpen, onClose, company, onSu
           </div>
 
           {/* Review Text */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs">
-              <label className="font-bold text-[#191c1e]">
-                Review Text <span className="text-red-500">*</span>
-              </label>
-              <span className="text-[10px] text-[#71787e]">
-                {reviewText.length}/2,000 (Min 30 chars)
-              </span>
-            </div>
-            <textarea
-              rows={4}
-              value={reviewText}
-              onChange={(e) => setReviewText(e.target.value)}
-              placeholder="Describe the recruitment interview stages, timeline transparency, and communication quality..."
-              maxLength={2000}
-              className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be] leading-relaxed"
-              required
-            />
-          </div>
+          <MarkdownEditor
+            label="Review Text"
+            labelClassName="font-bold text-xs text-[#191c1e]"
+            subLabel={`${reviewText.length}/2,000 (Min 30 chars)`}
+            required
+            rows={4}
+            maxLength={2000}
+            value={reviewText}
+            onChange={(e) => setReviewText(e.target.value)}
+            placeholder="Describe the recruitment interview stages, timeline transparency, and communication quality..."
+            textareaClassName="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be] leading-relaxed"
+          />
 
           {/* Anonymous Toggle (Figma Page 3) */}
           <div className="p-3 bg-[#f7f9fb] border border-[#e0e3e5] rounded-xl flex items-center justify-between">

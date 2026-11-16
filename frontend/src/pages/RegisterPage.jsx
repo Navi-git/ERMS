@@ -60,8 +60,17 @@ export default function RegisterPage() {
     { label: 'At least one special character', valid: /[^A-Za-z0-9]/.test(formData.password) },
   ];
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
     setErrorMessage('');
 
     // Client-side validations
@@ -290,7 +299,7 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} onKeyDown={handleKeyDown} autoComplete="off" className="space-y-4">
             
             {/* Conditional Name Field */}
             {role === 'candidate' ? (
@@ -334,6 +343,7 @@ export default function RegisterPage() {
                 type="email"
                 name="email"
                 required
+                autoComplete="email"
                 placeholder={role === 'candidate' ? 'alex@example.com' : 'recruiter@company.com'}
                 value={formData.email}
                 onChange={handleChange}
@@ -351,6 +361,7 @@ export default function RegisterPage() {
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   required
+                  autoComplete="new-password"
                   placeholder="••••••••••••"
                   value={formData.password}
                   onChange={handleChange}
@@ -396,6 +407,7 @@ export default function RegisterPage() {
                   type={showConfirmPassword ? 'text' : 'password'}
                   name="confirmPassword"
                   required
+                  autoComplete="new-password"
                   placeholder="••••••••••••"
                   value={formData.confirmPassword}
                   onChange={handleChange}
@@ -450,9 +462,10 @@ export default function RegisterPage() {
 
             {/* Submit Button */}
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={loading || isPasswordMismatch}
-              className="w-full mt-3 flex items-center justify-center gap-2 bg-[#0058be] hover:bg-[#0047a0] text-white font-semibold py-3 px-4 rounded-[4px] text-sm shadow-sm transition-all disabled:opacity-50"
+              className="w-full mt-3 flex items-center justify-center gap-2 bg-[#0058be] hover:bg-[#0047a0] text-white font-semibold py-3 px-4 rounded-[4px] text-sm shadow-sm transition-all disabled:opacity-50 cursor-pointer"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

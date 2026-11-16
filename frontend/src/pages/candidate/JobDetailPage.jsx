@@ -27,6 +27,8 @@ import ReportJobModal from '../../components/candidate/ReportJobModal';
 import jobApi from '../../api/jobApi';
 import { useToast } from '../../context/ToastContext';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
+import { formatSalaryRange } from '../../utils/currency';
+import MarkdownContent from '../../components/common/MarkdownContent';
 
 export default function JobDetailPage() {
   const { id } = useParams();
@@ -173,9 +175,7 @@ export default function JobDetailPage() {
                   )}
                   {(job.salary_min || job.salary_max) && (
                     <span className="px-3 py-1 rounded-lg bg-[#e6f4ea] text-[#137333] text-xs font-bold">
-                      {job.salary_min && job.salary_max
-                        ? `$${Number(job.salary_min).toLocaleString()} - $${Number(job.salary_max).toLocaleString()} ${job.salary_currency}`
-                        : `$${Number(job.salary_min || job.salary_max).toLocaleString()} ${job.salary_currency}`}
+                      {formatSalaryRange(job.salary_min, job.salary_max, job.salary_currency)}
                     </span>
                   )}
                   {job.openings > 1 && (
@@ -260,8 +260,12 @@ export default function JobDetailPage() {
               <h2 className="text-xl font-bold text-[#191c1e] tracking-tight">
                 Job Overview
               </h2>
-              <div className="text-sm text-[#41474d] leading-relaxed whitespace-pre-line">
-                {job.job_description || 'No detailed overview provided.'}
+              <div className="text-sm text-[#41474d] leading-relaxed">
+                {job.job_description ? (
+                  <MarkdownContent content={job.job_description} />
+                ) : (
+                  'No detailed overview provided.'
+                )}
               </div>
             </section>
 
@@ -271,8 +275,8 @@ export default function JobDetailPage() {
                 <h2 className="text-xl font-bold text-[#191c1e] tracking-tight">
                   Key Responsibilities
                 </h2>
-                <div className="text-sm text-[#41474d] leading-relaxed whitespace-pre-line">
-                  {job.responsibilities}
+                <div className="text-sm text-[#41474d] leading-relaxed">
+                  <MarkdownContent content={job.responsibilities} />
                 </div>
               </section>
             )}
@@ -283,8 +287,8 @@ export default function JobDetailPage() {
                 <h2 className="text-xl font-bold text-[#191c1e] tracking-tight">
                   Requirements & Qualifications
                 </h2>
-                <div className="text-sm text-[#41474d] leading-relaxed whitespace-pre-line">
-                  {job.requirements}
+                <div className="text-sm text-[#41474d] leading-relaxed">
+                  <MarkdownContent content={job.requirements} />
                 </div>
               </section>
             )}

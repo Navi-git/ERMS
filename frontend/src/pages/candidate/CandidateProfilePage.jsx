@@ -25,6 +25,8 @@ import CandidateLayout from '../../layouts/CandidateLayout';
 import { candidateApi } from '../../api/candidateApi';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
 import { useToast } from '../../context/ToastContext';
+import { getCurrencySymbol } from '../../utils/currency';
+import MarkdownContent from '../../components/common/MarkdownContent';
 import EditProfileModal from '../../components/candidate/EditProfileModal';
 import AddEditExperienceModal from '../../components/candidate/AddEditExperienceModal';
 import AddEditEducationModal from '../../components/candidate/AddEditEducationModal';
@@ -297,13 +299,15 @@ export default function CandidateProfilePage() {
                   Edit
                 </button>
               </div>
-              <p className="text-xs text-[#41474d] leading-relaxed whitespace-pre-line">
-                {profile.summary || (
+              <div className="text-xs text-[#41474d] leading-relaxed">
+                {profile.summary ? (
+                  <MarkdownContent content={profile.summary} />
+                ) : (
                   <span className="text-slate-400 italic">
-                    No summary provided yet. Click "Edit" to tell recruiters about your career achievements and goals.
+                    No summary provided yet. Click &quot;Edit&quot; to tell recruiters about your career achievements and goals.
                   </span>
                 )}
-              </p>
+              </div>
             </div>
 
             {/* Experience Section */}
@@ -384,9 +388,9 @@ export default function CandidateProfilePage() {
                         </div>
                       </div>
                       {exp.description && (
-                        <p className="text-xs text-[#41474d] mt-2 whitespace-pre-line leading-relaxed pl-1">
-                          {exp.description}
-                        </p>
+                        <div className="text-xs text-[#41474d] mt-2 leading-relaxed pl-1">
+                          <MarkdownContent content={exp.description} />
+                        </div>
                       )}
                     </div>
                   ))}
@@ -532,7 +536,7 @@ export default function CandidateProfilePage() {
                   <span className="text-[#71787e]">Expected Salary</span>
                   <span className="font-semibold text-[#191c1e]">
                     {profile.expected_salary_min || profile.expected_salary_max
-                      ? `${profile.currency} ${profile.expected_salary_min?.toLocaleString() || 0} - ${profile.expected_salary_max?.toLocaleString() || '...'}`
+                      ? `${getCurrencySymbol(profile.currency)} ${profile.expected_salary_min?.toLocaleString() || 0} - ${getCurrencySymbol(profile.currency)} ${profile.expected_salary_max?.toLocaleString() || '...'}`
                       : 'Not specified'}
                   </span>
                 </div>

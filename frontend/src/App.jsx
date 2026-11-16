@@ -82,6 +82,7 @@ export default function App() {
           {/* Recruiter Jobs Lifecycle */}
           <Route path="/recruiter/jobs" element={<RecruiterJobPostingsPage />} />
           <Route path="/recruiter/jobs/new" element={<RecruiterCreateJobPage />} />
+          <Route path="/recruiter/jobs/create" element={<Navigate to="/recruiter/jobs/new" replace />} />
           <Route path="/recruiter/jobs/:id/edit" element={<RecruiterEditJobPage />} />
           <Route path="/recruiter/jobs/:id/overview" element={<RecruiterJobOverviewPage />} />
           <Route path="/recruiter/jobs/:id/pipeline" element={<RecruiterJobPipelinePage />} />

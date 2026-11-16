@@ -47,11 +47,11 @@ class TestVerify:
         assert user.is_email_verified and user.email_verified_at
         assert OtpVerification.objects.get().verified_at is not None
 
-    def test_wrong_code_rejected_and_user_stays_unverified(self, api):
+    def test_wrong_code_rejected_and_user_is_not_created(self, api):
         register(api)
         r = verify(api, wrong_code(current_code()))
         assert r.status_code == 400 and r.data["code"] == "invalid_otp"
-        assert User.objects.get().is_email_verified is False
+        assert not User.objects.filter(email=EMAIL).exists()
 
     def test_code_cannot_be_used_twice(self, api):
         register(api)
@@ -66,7 +66,7 @@ class TestVerify:
         OtpVerification.objects.update(expires_at=timezone.now() - timedelta(minutes=1))
         r = verify(api, code)
         assert r.status_code == 400 and r.data["code"] == "invalid_otp"
-        assert User.objects.get().is_email_verified is False
+        assert not User.objects.filter(email=EMAIL).exists()
 
     def test_unknown_email_gets_same_error(self, api):
         r = verify(api, "123456", email="nobody@example.com")
@@ -84,7 +84,7 @@ class TestVerify:
             assert verify(api, wrong_code(real)).status_code == 400
         r = verify(api, real)  # even the correct code is refused now
         assert r.status_code == 429 and r.data["code"] == "otp_attempts_exceeded"
-        assert User.objects.get().is_email_verified is False
+        assert not User.objects.filter(email=EMAIL).exists()
 
 
 class TestResend:

@@ -39,9 +39,19 @@ class RegisterView(PublicAPIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = {k: v for k, v in serializer.validated_data.items() if k != "accept_terms"}
-        user = services.register_user(**data)
+        res_data = services.register_user(**data)
         return Response(
-            {"user": UserSummarySerializer(user).data, "message": "Verification code sent to your email."},
+            {
+                "user": {
+                    "email": res_data["email"],
+                    "role": res_data["role"],
+                    "full_name": res_data.get("full_name", ""),
+                    "is_email_verified": False,
+                },
+                "email": res_data["email"],
+                "role": res_data["role"],
+                "message": res_data.get("message", "Verification code sent to your email."),
+            },
             status=status.HTTP_201_CREATED,
         )
 
@@ -146,7 +156,7 @@ class AdminDashboardStatsView(APIView):
         candidates = User.objects.filter(role=Role.CANDIDATE.value).count()
         recruiters = User.objects.filter(role=Role.RECRUITER.value).count()
         companies = Company.objects.count()
-        pending_verifications = Company.objects.filter(verification_status="PENDING").count()
+        pending_verifications = Company.objects.filter(verification_status__in=["PENDING", "REVERIFICATION"]).count()
 
         return Response({
             "total_users": total_users,

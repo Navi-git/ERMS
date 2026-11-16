@@ -30,6 +30,7 @@ import adminApi from '../../api/adminApi';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
 import { useToast } from '../../context/ToastContext';
 import Pagination from '../../components/common/Pagination';
+import { getCurrencySymbol } from '../../utils/currency';
 
 export default function AdminUserDetailPage() {
   const { id } = useParams();
@@ -477,7 +478,7 @@ export default function AdminUserDetailPage() {
                               Expected Salary Range
                             </label>
                             <div className="p-3 bg-[#f8f9fb] border border-[#e5e8ec] rounded-lg text-xs font-medium text-[#191c1e]">
-                              {candidate_profile.currency} {candidate_profile.expected_salary_min?.toLocaleString()} - {candidate_profile.expected_salary_max?.toLocaleString()}
+                              {getCurrencySymbol(candidate_profile.currency)} {candidate_profile.expected_salary_min?.toLocaleString()} - {getCurrencySymbol(candidate_profile.currency)} {candidate_profile.expected_salary_max?.toLocaleString()}
                             </div>
                           </div>
                         )}

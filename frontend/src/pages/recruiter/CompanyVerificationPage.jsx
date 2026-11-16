@@ -19,6 +19,9 @@ import {
   Sparkles,
   Download,
   AlertTriangle,
+  Plus,
+  X,
+  Edit2,
 } from 'lucide-react';
 import RecruiterLayout from '../../layouts/RecruiterLayout';
 import companyApi from '../../api/companyApi';
@@ -33,6 +36,7 @@ export default function CompanyVerificationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [uploadingDocType, setUploadingDocType] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Verification & Company State
   const [verification, setVerification] = useState(null);
@@ -56,6 +60,8 @@ export default function CompanyVerificationPage() {
   const [intendedHiringMin, setIntendedHiringMin] = useState(10);
   const [intendedHiringMax, setIntendedHiringMax] = useState(25);
   const [selectedTalentTrackIds, setSelectedTalentTrackIds] = useState([]);
+  const [customTracks, setCustomTracks] = useState([]);
+  const [trackSearch, setTrackSearch] = useState('');
 
   // Hidden File Input Refs
   const fileInputs = {
@@ -64,9 +70,26 @@ export default function CompanyVerificationPage() {
     business_license: useRef(null),
   };
 
-  const loadVerificationData = async () => {
+  const getCurrentDraftPayload = () => ({
+    name: name.trim(),
+    registration_number: registrationNumber.trim(),
+    tax_id: taxId.trim(),
+    website_url: websiteUrl.trim(),
+    company_size: companySize,
+    industry_id: industryId ? parseInt(industryId, 10) : null,
+    headquarters_address: headquartersAddress.trim(),
+    city: city.trim(),
+    state: stateRegion.trim(),
+    country: country.trim(),
+    postal_code: postalCode.trim(),
+    intended_hiring_min: parseInt(intendedHiringMin, 10) || null,
+    intended_hiring_max: parseInt(intendedHiringMax, 10) || null,
+    talent_track_ids: [...selectedTalentTrackIds, ...customTracks],
+  });
+
+  const loadVerificationData = async ({ updateFormFields = true, showLoader = false } = {}) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
       const [vRes, indRes, trackRes] = await Promise.all([
         companyApi.getVerificationStatus(),
         masterDataApi.getCategoryItems('industry'),
@@ -77,35 +100,37 @@ export default function CompanyVerificationPage() {
       setIndustries(indRes.data || []);
       setAllTalentTracks(trackRes.data || []);
 
-      const comp = vRes.data.company_details;
-      if (comp) {
-        setName(comp.name || '');
-        setWebsiteUrl(comp.website_url || '');
-        setRegistrationNumber(comp.registration_number || '');
-        setTaxId(comp.tax_id || '');
-        setCompanySize(comp.company_size || '51 - 200 employees');
-        setIndustryId(comp.industry?.id || '');
-        setHeadquartersAddress(comp.headquarters_address || '');
-        setCity(comp.city || '');
-        setStateRegion(comp.state || '');
-        setPostalCode(comp.postal_code || '');
-        setCountry(comp.country || 'United States');
-        if (comp.talent_tracks) {
-          setSelectedTalentTrackIds(comp.talent_tracks.map((t) => t.id));
+      if (updateFormFields) {
+        const comp = vRes.data.company_details;
+        if (comp) {
+          setName(comp.name || '');
+          setWebsiteUrl(comp.website_url || '');
+          setRegistrationNumber(comp.registration_number || '');
+          setTaxId(comp.tax_id || '');
+          setCompanySize(comp.company_size || '51 - 200 employees');
+          setIndustryId(comp.industry?.id || '');
+          setHeadquartersAddress(comp.headquarters_address || '');
+          setCity(comp.city || '');
+          setStateRegion(comp.state || '');
+          setPostalCode(comp.postal_code || '');
+          setCountry(comp.country || 'United States');
+          if (comp.talent_tracks) {
+            setSelectedTalentTrackIds(comp.talent_tracks.map((t) => t.id));
+          }
         }
-      }
 
-      if (vRes.data.intended_hiring_min) setIntendedHiringMin(vRes.data.intended_hiring_min);
-      if (vRes.data.intended_hiring_max) setIntendedHiringMax(vRes.data.intended_hiring_max);
+        if (vRes.data.intended_hiring_min) setIntendedHiringMin(vRes.data.intended_hiring_min);
+        if (vRes.data.intended_hiring_max) setIntendedHiringMax(vRes.data.intended_hiring_max);
+      }
     } catch (err) {
       showToast('Failed to load verification status.', 'error');
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadVerificationData();
+    loadVerificationData({ updateFormFields: true, showLoader: true });
   }, []);
 
   const toggleTalentTrack = (id) => {
@@ -114,9 +139,52 @@ export default function CompanyVerificationPage() {
     );
   };
 
+  const handleAddTrack = (name) => {
+    const trimmed = (name || trackSearch).trim();
+    if (!trimmed) return;
+    const matchCatalog = allTalentTracks.find(
+      (t) => t.value.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (matchCatalog) {
+      if (!selectedTalentTrackIds.includes(matchCatalog.id)) {
+        setSelectedTalentTrackIds((prev) => [...prev, matchCatalog.id]);
+      }
+      setTrackSearch('');
+      return;
+    }
+    if (customTracks.some((ct) => ct.toLowerCase() === trimmed.toLowerCase())) {
+      setTrackSearch('');
+      return;
+    }
+    setCustomTracks((prev) => [...prev, trimmed]);
+    setTrackSearch('');
+  };
+
+  const removeCustomTrack = (trackName) => {
+    setCustomTracks((prev) => prev.filter((t) => t !== trackName));
+  };
+
+  const filteredTracks = allTalentTracks.filter(
+    (t) =>
+      trackSearch &&
+      t.value.toLowerCase().includes(trackSearch.toLowerCase()) &&
+      !selectedTalentTrackIds.includes(t.id)
+  );
+
   // Document Upload
   const handleFileUpload = async (documentType, file) => {
     if (!file) return;
+
+    const allowedExts = ['pdf', 'png', 'jpg', 'jpeg'];
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!allowedExts.includes(ext)) {
+      showToast('Only PDF, PNG, and JPG documents are accepted.', 'error');
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      showToast('Document size exceeds 15 MB limit.', 'error');
+      return;
+    }
 
     const formData = new FormData();
     formData.append('document_type', documentType);
@@ -124,9 +192,19 @@ export default function CompanyVerificationPage() {
 
     try {
       setUploadingDocType(documentType);
+
+      // Auto-save currently filled form fields as draft so uncommitted changes are preserved
+      try {
+        await companyApi.saveVerificationDraft(getCurrentDraftPayload());
+      } catch (draftErr) {
+        console.warn('Auto-save draft on upload warning:', draftErr);
+      }
+
       await companyApi.uploadVerificationDocument(formData);
       showToast('Document uploaded and cryptographic checksum generated.', 'success');
-      loadVerificationData();
+
+      // Refresh documents and status WITHOUT full-screen reload and WITHOUT resetting form inputs
+      await loadVerificationData({ updateFormFields: false, showLoader: false });
     } catch (err) {
       showToast(err?.response?.data?.detail || 'Failed to upload document.', 'error');
     } finally {
@@ -154,26 +232,12 @@ export default function CompanyVerificationPage() {
   const handleSaveDraft = async () => {
     try {
       setSavingDraft(true);
-      const payload = {
-        name: name.trim(),
-        registration_number: registrationNumber.trim(),
-        tax_id: taxId.trim(),
-        website_url: websiteUrl.trim(),
-        company_size: companySize,
-        industry_id: industryId ? parseInt(industryId, 10) : null,
-        headquarters_address: headquartersAddress.trim(),
-        city: city.trim(),
-        state: stateRegion.trim(),
-        country: country.trim(),
-        postal_code: postalCode.trim(),
-        intended_hiring_min: parseInt(intendedHiringMin, 10) || null,
-        intended_hiring_max: parseInt(intendedHiringMax, 10) || null,
-        talent_track_ids: selectedTalentTrackIds,
-      };
+      const payload = getCurrentDraftPayload();
 
       await companyApi.saveVerificationDraft(payload);
       showToast('Verification draft saved successfully.', 'success');
-      loadVerificationData();
+      // Update verification metadata without full-screen reload or overwriting form inputs
+      await loadVerificationData({ updateFormFields: false, showLoader: false });
     } catch (err) {
       showToast(err?.response?.data?.detail || 'Failed to save draft.', 'error');
     } finally {
@@ -186,26 +250,19 @@ export default function CompanyVerificationPage() {
     e.preventDefault();
     try {
       setSubmitting(true);
-      const payload = {
-        name: name.trim(),
-        registration_number: registrationNumber.trim(),
-        tax_id: taxId.trim(),
-        website_url: websiteUrl.trim(),
-        company_size: companySize,
-        industry_id: industryId ? parseInt(industryId, 10) : null,
-        headquarters_address: headquartersAddress.trim(),
-        city: city.trim(),
-        state: stateRegion.trim(),
-        country: country.trim(),
-        postal_code: postalCode.trim(),
-        intended_hiring_min: parseInt(intendedHiringMin, 10) || null,
-        intended_hiring_max: parseInt(intendedHiringMax, 10) || null,
-        talent_track_ids: selectedTalentTrackIds,
-      };
+      const payload = getCurrentDraftPayload();
 
       await companyApi.submitVerification(payload);
-      showToast('Verification submitted! Our compliance team will review your application.', 'success');
-      loadVerificationData();
+      if (verification?.status === 'APPROVED' || verification?.status === 'REVERIFICATION') {
+        showToast(
+          'Updated verification submitted for compliance reverification! Your platform privileges remain active.',
+          'success'
+        );
+        setIsEditing(false);
+      } else {
+        showToast('Verification submitted! Our compliance team will review your application.', 'success');
+      }
+      await loadVerificationData({ updateFormFields: true, showLoader: false });
     } catch (err) {
       showToast(err?.response?.data?.detail || 'Failed to submit verification.', 'error');
     } finally {
@@ -239,9 +296,16 @@ export default function CompanyVerificationPage() {
   if (hasTax) readiness += 15;
   if (hasLicense) readiness += 10;
 
-  const isApproved = verification?.status === 'APPROVED';
-  const isPending = verification?.status === 'PENDING' || verification?.status === 'UNDER_REVIEW';
-  const isRejected = verification?.status === 'REJECTED';
+  const status = verification?.status || 'DRAFT';
+  const isApproved = status === 'APPROVED';
+  const isReverification = status === 'REVERIFICATION';
+  const isVerified = isApproved || isReverification;
+  const isPending = status === 'PENDING' || status === 'UNDER_REVIEW';
+  const isRejected = status === 'REJECTED';
+  const isDraft = status === 'DRAFT';
+
+  const isReadOnly = (isApproved || isPending) && !isEditing;
+  if (isVerified) readiness = 100;
 
   return (
     <RecruiterLayout>
@@ -263,6 +327,104 @@ export default function CompanyVerificationPage() {
           </div>
         )}
 
+        {/* Reverification Active Notice */}
+        {isReverification && (
+          <div className="p-4 bg-purple-50 border border-purple-200 rounded-2xl flex items-start justify-between gap-4 text-xs text-purple-950 flex-col sm:flex-row">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-sm text-purple-950">Compliance Reverification In Progress</h4>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                    Active Verified Privileges
+                  </span>
+                </div>
+                <p className="text-purple-900 leading-relaxed max-w-2xl">
+                  Your updated corporate filings and documents have been submitted to compliance. Your organization remains
+                  fully active: job postings, candidate pipelines, and verified enterprise privileges continue uninterrupted.
+                </p>
+              </div>
+            </div>
+            {!isEditing && (
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Modify Submission</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Approved Status Notice with Edit Action */}
+        {isApproved && !isEditing && (
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start sm:items-center justify-between gap-4 text-xs text-emerald-950 flex-col sm:flex-row">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5 sm:mt-0" />
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-sm text-emerald-950">Organization Officially Verified</h4>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Enterprise
+                  </span>
+                </div>
+                <p className="text-emerald-800">
+                  Your compliance documents and corporate filings are audited and approved. To update business details or replace filings, click Edit Verification Details.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="px-4 py-2 bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+              <span>Edit Verification Details</span>
+            </button>
+          </div>
+        )}
+
+        {/* Editing Banner */}
+        {isVerified && isEditing && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-start justify-between gap-4 text-xs text-blue-950 flex-col sm:flex-row">
+            <div className="flex items-start gap-3">
+              <Info className="w-5 h-5 text-[#0058be] shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <h4 className="font-bold text-sm text-blue-950">Editing Verification Details</h4>
+                <p className="text-blue-800 leading-relaxed max-w-2xl">
+                  You can update company information or replace compliance files. When submitted, updates enter
+                  Compliance Reverification while your active platform privileges and job listings remain fully operational.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsEditing(false);
+                loadVerificationData({ updateFormFields: true, showLoader: false });
+              }}
+              className="px-3.5 py-1.5 bg-white border border-[#c3c7cb] hover:bg-slate-50 text-xs font-semibold text-[#191c1e] rounded-xl transition-colors cursor-pointer shrink-0"
+            >
+              Cancel Editing
+            </button>
+          </div>
+        )}
+
+        {/* Pending Review Notice */}
+        {isPending && (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-xs text-amber-950">
+            <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h4 className="font-bold text-sm text-amber-950">Application Under Review</h4>
+              <p className="text-amber-800 leading-relaxed">
+                Your initial verification application has been submitted and is currently being audited by our Trust &amp; Safety specialists. Review cycles typically take 24–48 business hours.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Breadcrumb & Header (Figma Page 8) */}
         <div className="space-y-2">
           <div className="flex items-center gap-1.5 text-[11px] font-bold text-[#71787e] tracking-wider uppercase">
@@ -270,16 +432,33 @@ export default function CompanyVerificationPage() {
             <ChevronRight className="w-3.5 h-3.5" />
             <span>Company Setup</span>
             <ChevronRight className="w-3.5 h-3.5 text-[#0058be]" />
-            <span className="text-[#0058be]">Organization Verification</span>
+            <span className="text-[#0058be]">
+              {isVerified ? 'Verification Details' : 'Organization Verification'}
+            </span>
           </div>
 
-          <h1 className="text-3xl font-extrabold text-[#191c1e] tracking-tight">
-            Verify Your Company
-          </h1>
-          <p className="text-xs sm:text-sm text-[#41474d] max-w-3xl leading-relaxed">
-            Official corporate verification establishes immediate trust with top-tier candidates and unlocks
-            high-volume recruiting pipelines. Review cycles average 24 to 48 business hours.
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-extrabold text-[#191c1e] tracking-tight">
+                {isVerified ? 'Organization Verification Details' : 'Verify Your Company'}
+              </h1>
+              <p className="text-xs sm:text-sm text-[#41474d] max-w-3xl leading-relaxed mt-1">
+                {isVerified
+                  ? 'Official corporate compliance records, legal verification status, and audited documents.'
+                  : 'Official corporate verification establishes immediate trust with top-tier candidates and unlocks high-volume recruiting pipelines. Review cycles average 24 to 48 business hours.'}
+              </p>
+            </div>
+            {isApproved && !isEditing && (
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="px-4 py-2 bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer self-start sm:self-auto shrink-0"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Edit Details</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Two-Column Form Layout */}
@@ -311,7 +490,12 @@ export default function CompanyVerificationPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Nexus Dynamics LLC"
-                    className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be]"
+                    disabled={isReadOnly}
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs transition-colors ${
+                      isReadOnly
+                        ? 'bg-[#f7f9fb] text-[#41474d] border border-[#e0e3e5] cursor-not-allowed'
+                        : 'bg-white border border-[#c3c7cb] text-[#191c1e] focus:outline-none focus:border-[#0058be]'
+                    }`}
                     required
                   />
                 </div>
@@ -324,7 +508,12 @@ export default function CompanyVerificationPage() {
                     value={websiteUrl}
                     onChange={(e) => setWebsiteUrl(e.target.value)}
                     placeholder="nexusdynamics.io"
-                    className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be]"
+                    disabled={isReadOnly}
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs transition-colors ${
+                      isReadOnly
+                        ? 'bg-[#f7f9fb] text-[#41474d] border border-[#e0e3e5] cursor-not-allowed'
+                        : 'bg-white border border-[#c3c7cb] text-[#191c1e] focus:outline-none focus:border-[#0058be]'
+                    }`}
                   />
                 </div>
 
@@ -338,7 +527,12 @@ export default function CompanyVerificationPage() {
                     value={registrationNumber}
                     onChange={(e) => setRegistrationNumber(e.target.value)}
                     placeholder="CRN-9021849-B"
-                    className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be]"
+                    disabled={isReadOnly}
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs transition-colors ${
+                      isReadOnly
+                        ? 'bg-[#f7f9fb] text-[#41474d] border border-[#e0e3e5] cursor-not-allowed'
+                        : 'bg-white border border-[#c3c7cb] text-[#191c1e] focus:outline-none focus:border-[#0058be]'
+                    }`}
                     required
                   />
                 </div>
@@ -353,7 +547,12 @@ export default function CompanyVerificationPage() {
                     value={taxId}
                     onChange={(e) => setTaxId(e.target.value)}
                     placeholder="EIN-84-9201948"
-                    className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be]"
+                    disabled={isReadOnly}
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs transition-colors ${
+                      isReadOnly
+                        ? 'bg-[#f7f9fb] text-[#41474d] border border-[#e0e3e5] cursor-not-allowed'
+                        : 'bg-white border border-[#c3c7cb] text-[#191c1e] focus:outline-none focus:border-[#0058be]'
+                    }`}
                     required
                   />
                 </div>
@@ -364,7 +563,12 @@ export default function CompanyVerificationPage() {
                   <select
                     value={companySize}
                     onChange={(e) => setCompanySize(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be]"
+                    disabled={isReadOnly}
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs transition-colors ${
+                      isReadOnly
+                        ? 'bg-[#f7f9fb] text-[#41474d] border border-[#e0e3e5] cursor-not-allowed'
+                        : 'bg-white border border-[#c3c7cb] text-[#191c1e] focus:outline-none focus:border-[#0058be]'
+                    }`}
                   >
                     <option value="1 - 10 employees">1 - 10 employees</option>
                     <option value="11 - 50 employees">11 - 50 employees</option>
@@ -382,7 +586,12 @@ export default function CompanyVerificationPage() {
                   <select
                     value={industryId}
                     onChange={(e) => setIndustryId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be]"
+                    disabled={isReadOnly}
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs transition-colors ${
+                      isReadOnly
+                        ? 'bg-[#f7f9fb] text-[#41474d] border border-[#e0e3e5] cursor-not-allowed'
+                        : 'bg-white border border-[#c3c7cb] text-[#191c1e] focus:outline-none focus:border-[#0058be]'
+                    }`}
                     required
                   >
                     <option value="">Select Category</option>
@@ -404,7 +613,12 @@ export default function CompanyVerificationPage() {
                     value={headquartersAddress}
                     onChange={(e) => setHeadquartersAddress(e.target.value)}
                     placeholder="450 Serra Mall, Stanford, CA 94305, United States"
-                    className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be]"
+                    disabled={isReadOnly}
+                    className={`w-full px-3.5 py-2.5 rounded-xl text-xs transition-colors ${
+                      isReadOnly
+                        ? 'bg-[#f7f9fb] text-[#41474d] border border-[#e0e3e5] cursor-not-allowed'
+                        : 'bg-white border border-[#c3c7cb] text-[#191c1e] focus:outline-none focus:border-[#0058be]'
+                    }`}
                     required
                   />
                   <p className="text-[11px] text-[#71787e]">
@@ -441,7 +655,12 @@ export default function CompanyVerificationPage() {
                       onChange={(e) => setIntendedHiringMin(e.target.value)}
                       min={1}
                       placeholder="Min"
-                      className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be]"
+                      disabled={isReadOnly}
+                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs transition-colors ${
+                        isReadOnly
+                          ? 'bg-[#f7f9fb] text-[#41474d] border border-[#e0e3e5] cursor-not-allowed'
+                          : 'bg-white border border-[#c3c7cb] text-[#191c1e] focus:outline-none focus:border-[#0058be]'
+                      }`}
                     />
                     <span className="text-xs text-[#71787e]">to</span>
                     <input
@@ -450,19 +669,32 @@ export default function CompanyVerificationPage() {
                       onChange={(e) => setIntendedHiringMax(e.target.value)}
                       min={1}
                       placeholder="Max"
-                      className="w-full px-3.5 py-2.5 bg-white border border-[#c3c7cb] rounded-xl text-xs text-[#191c1e] focus:outline-none focus:border-[#0058be]"
+                      disabled={isReadOnly}
+                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs transition-colors ${
+                        isReadOnly
+                          ? 'bg-[#f7f9fb] text-[#41474d] border border-[#e0e3e5] cursor-not-allowed'
+                          : 'bg-white border border-[#c3c7cb] text-[#191c1e] focus:outline-none focus:border-[#0058be]'
+                      }`}
                     />
                   </div>
                 </div>
 
                 {/* Primary Talent Tracks */}
-                <div className="sm:col-span-2 space-y-2 pt-2">
-                  <label className="text-xs font-bold text-[#191c1e]">
-                    Primary Functional Talent Tracks
-                  </label>
-                  <p className="text-[11px] text-[#71787e]">
-                    Calibrates candidate compliance thresholds and matching algorithms:
-                  </p>
+                <div className="sm:col-span-2 space-y-3 pt-3 border-t border-[#f1f4f6]">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold text-[#191c1e]">
+                        Primary Functional Talent Tracks
+                      </label>
+                      <p className="text-[11px] text-[#71787e]">
+                        Select or add key functional domains your organization hires for:
+                      </p>
+                    </div>
+                    <span className="text-xs font-semibold text-[#0058be]">
+                      {selectedTalentTrackIds.length + customTracks.length} Selected
+                    </span>
+                  </div>
+
                   <div className="flex flex-wrap gap-2 pt-1">
                     {allTalentTracks.map((track) => {
                       const active = selectedTalentTrackIds.includes(track.id);
@@ -470,8 +702,11 @@ export default function CompanyVerificationPage() {
                         <button
                           key={track.id}
                           type="button"
-                          onClick={() => toggleTalentTrack(track.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                          onClick={() => !isReadOnly && toggleTalentTrack(track.id)}
+                          disabled={isReadOnly}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                            isReadOnly ? 'cursor-default' : 'cursor-pointer'
+                          } ${
                             active
                               ? 'bg-[#0058be] text-white shadow-xs'
                               : 'bg-[#f1f4f6] text-[#41474d] hover:bg-[#e0e3e5]'
@@ -481,7 +716,100 @@ export default function CompanyVerificationPage() {
                         </button>
                       );
                     })}
+
+                    {customTracks.map((cTrack) => (
+                      <span
+                        key={cTrack}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0058be] text-white shadow-xs"
+                      >
+                        <span>{cTrack}</span>
+                        <span className="text-[9px] px-1 py-0.2 bg-white/20 rounded font-normal uppercase">
+                          Custom
+                        </span>
+                        {!isReadOnly && (
+                          <button
+                            type="button"
+                            onClick={() => removeCustomTrack(cTrack)}
+                            className="hover:text-red-200 transition-colors cursor-pointer ml-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        )}
+                      </span>
+                    ))}
                   </div>
+
+                  {/* Search / Add Custom Track Input */}
+                  {!isReadOnly && (
+                    <div className="relative pt-1">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={trackSearch}
+                          onChange={(e) => setTrackSearch(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (trackSearch.trim()) {
+                                handleAddTrack(trackSearch.trim());
+                              }
+                            }
+                          }}
+                          placeholder="Type to search or enter custom hiring track (e.g. AI Research, Robotics, Quantum)..."
+                          className="w-full px-3.5 py-2 text-xs rounded-xl border border-[#c1c7ce] bg-white text-[#191c1e] placeholder:text-[#9199a1] focus:outline-hidden focus:border-[#0058be]"
+                        />
+                        {trackSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setTrackSearch('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#71787e] hover:text-[#191c1e] cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {trackSearch.trim() && (
+                        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-[#e0e3e5] rounded-xl shadow-lg max-h-48 overflow-y-auto p-1 space-y-1">
+                          {filteredTracks.slice(0, 5).map((track) => (
+                            <button
+                              key={track.id}
+                              type="button"
+                              onClick={() => {
+                                if (!selectedTalentTrackIds.includes(track.id)) {
+                                  toggleTalentTrack(track.id);
+                                }
+                                setTrackSearch('');
+                              }}
+                              className="w-full text-left px-3 py-2 text-xs font-semibold text-[#191c1e] hover:bg-[#e8f0fe] hover:text-[#0058be] rounded-lg transition-colors flex items-center justify-between cursor-pointer"
+                            >
+                              <span>{track.value}</span>
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          ))}
+
+                          {!allTalentTracks.some(
+                            (t) => t.value.toLowerCase() === trackSearch.trim().toLowerCase()
+                          ) &&
+                            !customTracks.some(
+                              (ct) => ct.toLowerCase() === trackSearch.trim().toLowerCase()
+                            ) && (
+                              <button
+                                type="button"
+                                onClick={() => handleAddTrack(trackSearch.trim())}
+                                className="w-full text-left px-3 py-2.5 text-xs font-bold text-[#0058be] bg-[#e8f0fe]/60 hover:bg-[#e8f0fe] rounded-lg transition-colors flex items-center justify-between border-t border-[#e0e3e5] cursor-pointer"
+                              >
+                                <span className="flex items-center gap-1.5">
+                                  <Sparkles className="w-3.5 h-3.5 text-[#0058be]" />
+                                  <span>Add &ldquo;{trackSearch.trim()}&rdquo; as custom track</span>
+                                </span>
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
@@ -556,7 +884,10 @@ export default function CompanyVerificationPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => fileInputs.incorporation.current?.click()}
+                              onClick={() => {
+                                if (isReadOnly) setIsEditing(true);
+                                setTimeout(() => fileInputs.incorporation.current?.click(), 50);
+                              }}
                               disabled={uploading}
                               className="text-xs font-semibold text-[#0058be] hover:underline cursor-pointer"
                             >
@@ -578,7 +909,11 @@ export default function CompanyVerificationPage() {
                       <input
                         type="file"
                         ref={fileInputs.incorporation}
-                        onChange={(e) => handleFileUpload('incorporation', e.target.files?.[0])}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload('incorporation', file);
+                          e.target.value = '';
+                        }}
                         accept=".pdf,.png,.jpg,.jpeg"
                         className="hidden"
                       />
@@ -636,7 +971,10 @@ export default function CompanyVerificationPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => fileInputs.tax_form.current?.click()}
+                              onClick={() => {
+                                if (isReadOnly) setIsEditing(true);
+                                setTimeout(() => fileInputs.tax_form.current?.click(), 50);
+                              }}
                               disabled={uploading}
                               className="text-xs font-semibold text-[#0058be] hover:underline cursor-pointer"
                             >
@@ -658,7 +996,11 @@ export default function CompanyVerificationPage() {
                       <input
                         type="file"
                         ref={fileInputs.tax_form}
-                        onChange={(e) => handleFileUpload('tax_form', e.target.files?.[0])}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload('tax_form', file);
+                          e.target.value = '';
+                        }}
                         accept=".pdf,.png,.jpg,.jpeg"
                         className="hidden"
                       />
@@ -717,7 +1059,10 @@ export default function CompanyVerificationPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => fileInputs.business_license.current?.click()}
+                              onClick={() => {
+                                if (isReadOnly) setIsEditing(true);
+                                setTimeout(() => fileInputs.business_license.current?.click(), 50);
+                              }}
                               disabled={uploading}
                               className="text-xs font-semibold text-[#0058be] hover:underline cursor-pointer"
                             >
@@ -739,7 +1084,11 @@ export default function CompanyVerificationPage() {
                       <input
                         type="file"
                         ref={fileInputs.business_license}
-                        onChange={(e) => handleFileUpload('business_license', e.target.files?.[0])}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload('business_license', file);
+                          e.target.value = '';
+                        }}
                         accept=".pdf,.png,.jpg,.jpeg"
                         className="hidden"
                       />
@@ -755,35 +1104,58 @@ export default function CompanyVerificationPage() {
                 <button
                   type="button"
                   onClick={handleSaveDraft}
-                  disabled={savingDraft || isApproved}
+                  disabled={savingDraft || (isApproved && !isEditing) || isPending}
                   className="px-4 py-2.5 bg-white border border-[#c3c7cb] hover:bg-slate-50 text-xs font-semibold text-[#191c1e] rounded-xl shadow-xs transition-colors cursor-pointer w-full sm:w-auto text-center disabled:opacity-50"
                 >
                   {savingDraft ? 'Saving Draft...' : 'Save Draft'}
                 </button>
+                {isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditing(false);
+                      loadVerificationData({ updateFormFields: true, showLoader: false });
+                    }}
+                    className="px-4 py-2.5 text-xs font-semibold text-[#71787e] hover:text-[#191c1e] text-center cursor-pointer"
+                  >
+                    Cancel Editing
+                  </button>
+                )}
                 <Link
                   to="/recruiter/company/profile"
                   className="px-4 py-2.5 text-xs font-semibold text-[#71787e] hover:text-[#191c1e] text-center"
                 >
-                  Cancel & Return
+                  Return to Profile
                 </Link>
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting || isApproved || isPending}
-                className="w-full sm:w-auto px-6 py-2.5 bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>
-                  {isApproved
-                    ? 'Company Already Verified'
-                    : isPending
-                    ? 'Application Under Review'
-                    : submitting
-                    ? 'Submitting...'
-                    : 'Submit for Review'}
-                </span>
-              </button>
+              {isApproved && !isEditing ? (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  <span>Edit Verification Details</span>
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={submitting || isPending}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-semibold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>
+                    {isPending
+                      ? 'Application Under Review'
+                      : submitting
+                      ? 'Submitting...'
+                      : (isApproved || isReverification)
+                      ? 'Submit for Reverification'
+                      : 'Submit for Review'}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -860,6 +1232,12 @@ export default function CompanyVerificationPage() {
                   <span className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
                   <span>
                     <strong>State: Approved</strong> — Unlocks all recruiting tabs, publishing, and enterprise badge.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-2 h-2 rounded-full bg-purple-500 mt-1.5 shrink-0" />
+                  <span>
+                    <strong>State: Reverification</strong> — Allows updates without disruption. Enterprise checkmark and active postings remain live while updates are audited.
                   </span>
                 </li>
               </ul>

@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../../components/admin/AdminLayout';
 import Pagination from '../../components/common/Pagination';
+import AdminFlagJobModal from '../../components/admin/AdminFlagJobModal';
+import AdminHoldJobModal from '../../components/admin/AdminHoldJobModal';
 import jobApi from '../../api/jobApi';
 import masterDataApi from '../../api/masterDataApi';
 import { useToast } from '../../context/ToastContext';
@@ -47,6 +49,8 @@ export default function AdminJobsManagementPage() {
 
   // Modals & Menu
   const [statusMenuOpenId, setStatusMenuOpenId] = useState(null);
+  const [flagModalJob, setFlagModalJob] = useState(null);
+  const [holdModalJob, setHoldModalJob] = useState(null);
 
   useEffect(() => {
     async function loadCategories() {
@@ -100,17 +104,13 @@ export default function AdminJobsManagementPage() {
     }
   };
 
-  const handleFlagJob = async (jobId) => {
-    const reason = window.prompt('Enter reason for flagging this listing:', 'Administrative policy check');
-    if (!reason) return;
+  const handleOpenFlagModal = (job) => {
+    setFlagModalJob(job);
+  };
 
-    try {
-      await jobApi.flagAdminJob(jobId, { reason });
-      showToast('Job flagged and reported for moderation review.', 'success');
-      fetchAdminJobs(currentPage);
-    } catch (err) {
-      showToast('Failed to flag job.', 'error');
-    }
+  const handleOpenHoldModal = (job) => {
+    setStatusMenuOpenId(null);
+    setHoldModalJob(job);
   };
 
   const handleExportCSV = () => {
@@ -336,7 +336,7 @@ export default function AdminJobsManagementPage() {
 
                             <button
                               type="button"
-                              onClick={() => handleFlagJob(job.id)}
+                              onClick={() => handleOpenFlagModal(job)}
                               className="p-1.5 rounded-lg text-[#717680] hover:text-[#ba1a1a] hover:bg-[#ffdad6]/40 transition-colors cursor-pointer"
                               title="Flag for Review"
                             >
@@ -358,7 +358,7 @@ export default function AdminJobsManagementPage() {
                               {job.job_status !== 'on_hold' && (
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateStatus(job.id, 'on_hold', 'Administrative hold')}
+                                  onClick={() => handleOpenHoldModal(job)}
                                   className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold text-[#b06000] hover:bg-[#fff8e1] flex items-center gap-2 cursor-pointer"
                                 >
                                   <PauseCircle className="w-3.5 h-3.5" />
@@ -410,6 +410,20 @@ export default function AdminJobsManagementPage() {
             />
           </div>
         )}
+        {/* Modals */}
+        <AdminFlagJobModal
+          isOpen={Boolean(flagModalJob)}
+          onClose={() => setFlagModalJob(null)}
+          job={flagModalJob}
+          onSuccess={() => fetchAdminJobs(currentPage)}
+        />
+
+        <AdminHoldJobModal
+          isOpen={Boolean(holdModalJob)}
+          onClose={() => setHoldModalJob(null)}
+          job={holdModalJob}
+          onSuccess={() => fetchAdminJobs(currentPage)}
+        />
       </div>
     </AdminLayout>
   );

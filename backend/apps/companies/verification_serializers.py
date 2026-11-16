@@ -91,6 +91,6 @@ class VerificationSaveDraftSerializer(serializers.Serializer):
     intended_hiring_min = serializers.IntegerField(required=False, allow_null=True)
     intended_hiring_max = serializers.IntegerField(required=False, allow_null=True)
     talent_track_ids = serializers.ListField(
-        child=serializers.IntegerField(), required=False
+        required=False
     )
 

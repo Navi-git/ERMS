@@ -33,7 +33,7 @@ class CandidateProfile(models.Model):
     )
     expected_salary_min = models.IntegerField(null=True, blank=True)
     expected_salary_max = models.IntegerField(null=True, blank=True)
-    currency = models.CharField(max_length=3, default="USD")
+    currency = models.CharField(max_length=3, default="INR")
     work_authorization_status = models.CharField(max_length=50, null=True, blank=True)
     security_clearance = models.CharField(max_length=100, null=True, blank=True)
     willing_to_relocate = models.BooleanField(default=False)

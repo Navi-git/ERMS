@@ -27,7 +27,10 @@ class PublicJobListView(APIView):
         queryset = (
             Job.objects.filter(
                 job_status=JobStatus.PUBLISHED,
-                company__verification_status=CompanyVerificationStatus.APPROVED,
+                company__verification_status__in=[
+                    CompanyVerificationStatus.APPROVED,
+                    CompanyVerificationStatus.REVERIFICATION,
+                ],
                 company__suspended_at__isnull=True,
             )
             .filter(Q(application_deadline__isnull=True) | Q(application_deadline__gt=now))
@@ -181,7 +184,13 @@ class PublicJobDetailView(APIView):
                     message="This job posting is no longer active or available.",
                     status_code=404,
                 )
-            if job.company.verification_status != CompanyVerificationStatus.APPROVED or job.company.suspended_at:
+            if (
+                job.company.verification_status not in [
+                    CompanyVerificationStatus.APPROVED,
+                    CompanyVerificationStatus.REVERIFICATION,
+                ]
+                or job.company.suspended_at
+            ):
                 raise ApiError(
                     code="company_not_verified",
                     message="This job posting is currently unavailable.",

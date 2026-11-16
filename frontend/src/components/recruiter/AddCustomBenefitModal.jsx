@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Gift } from 'lucide-react';
+import MarkdownEditor from '../common/MarkdownEditor';
 
 export default function AddCustomBenefitModal({ isOpen, onClose, onAdd }) {
   const [benefitName, setBenefitName] = useState('');
@@ -61,15 +62,13 @@ export default function AddCustomBenefitModal({ isOpen, onClose, onAdd }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase text-[#71787e] mb-1.5 tracking-wider">
-              Description (Optional)
-            </label>
-            <textarea
+            <MarkdownEditor
+              label="Description (Optional)"
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the benefit (e.g. $1,500/year to spend on courses, conferences, or books)..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-[#c1c7ce] bg-white text-sm text-[#191c1e] placeholder:text-[#9199a1] focus:outline-hidden focus:border-[#0058be] focus:ring-2 focus:ring-[#0058be]/20"
+              placeholder="Describe the benefit (e.g. ₹50,000/year to spend on courses, conferences, or books)..."
+              textareaClassName="w-full px-3.5 py-2.5 rounded-xl border border-[#c1c7ce] bg-white text-sm text-[#191c1e] placeholder:text-[#9199a1] focus:outline-hidden focus:border-[#0058be]"
             />
           </div>
 

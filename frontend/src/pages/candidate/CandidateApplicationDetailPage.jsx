@@ -25,6 +25,7 @@ import CandidateLayout from '../../layouts/CandidateLayout';
 import applicationApi from '../../api/applicationApi';
 import { useToast } from '../../context/ToastContext';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
+import MarkdownContent from '../../components/common/MarkdownContent';
 
 export default function CandidateApplicationDetailPage() {
   const { id } = useParams();
@@ -278,7 +279,23 @@ export default function CandidateApplicationDetailPage() {
               Hiring Pipeline Progress
             </span>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div
+              className={`grid gap-3 ${
+                (application.pipeline_stepper?.length || 0) === 1
+                  ? 'grid-cols-1'
+                  : (application.pipeline_stepper?.length || 0) === 2
+                  ? 'grid-cols-2'
+                  : (application.pipeline_stepper?.length || 0) === 3
+                  ? 'grid-cols-1 sm:grid-cols-3'
+                  : (application.pipeline_stepper?.length || 0) === 4
+                  ? 'grid-cols-2 sm:grid-cols-4'
+                  : (application.pipeline_stepper?.length || 0) === 5
+                  ? 'grid-cols-2 sm:grid-cols-5'
+                  : (application.pipeline_stepper?.length || 0) === 6
+                  ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6'
+                  : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6'
+              }`}
+            >
               {application.pipeline_stepper?.map((step) => {
                 const isCompleted = step.is_completed;
                 const isCurrent = step.is_current;
@@ -447,9 +464,9 @@ export default function CandidateApplicationDetailPage() {
                     <span className="text-[11px] font-bold text-[#71787e] uppercase tracking-wider block mb-1">
                       Cover Letter
                     </span>
-                    <p className="text-xs text-[#41474d] whitespace-pre-line leading-relaxed">
-                      {application.cover_letter}
-                    </p>
+                    <div className="text-xs text-[#41474d] leading-relaxed">
+                      <MarkdownContent content={application.cover_letter} />
+                    </div>
                   </div>
                 )}
               </div>

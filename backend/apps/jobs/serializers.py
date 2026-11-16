@@ -60,9 +60,15 @@ class JobSkillSerializer(serializers.ModelSerializer):
 
 
 class JobSkillWriteSerializer(serializers.Serializer):
-    skill_id = serializers.IntegerField(required=True)
+    skill_id = serializers.IntegerField(required=False, allow_null=True)
+    skill_name = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
     is_required = serializers.BooleanField(default=True)
     proficiency_level = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+
+    def validate(self, attrs):
+        if not attrs.get("skill_id") and not attrs.get("skill_name"):
+            raise serializers.ValidationError("Either skill_id or skill_name must be provided.")
+        return attrs
 
 
 class JobBenefitSerializer(serializers.ModelSerializer):
@@ -108,6 +114,11 @@ class RecruiterJobCreateUpdateSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True,
     )
+    stages = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        write_only=True,
+    )
 
     class Meta:
         model = Job
@@ -129,6 +140,7 @@ class RecruiterJobCreateUpdateSerializer(serializers.ModelSerializer):
             "accepts_cover_letter",
             "promote_on_job_boards",
             "application_deadline",
+            "stages",
         ]
 
     def validate(self, attrs):

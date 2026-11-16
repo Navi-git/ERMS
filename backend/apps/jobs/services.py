@@ -101,9 +101,70 @@ def seed_default_job_stages(job: Job) -> list[JobStage]:
     return stages
 
 
+def sync_job_stages(job: Job, stages_data: list[dict]) -> list[JobStage]:
+    """Synchronizes pipeline stages for a job (create, update, reorder, delete/deactivate)."""
+    if not stages_data:
+        return list(job.stages.all())
+
+    existing_stages = {s.id: s for s in job.stages.all()}
+    kept_stage_ids = set()
+    result = []
+
+    for idx, s_data in enumerate(stages_data, start=1):
+        s_id = s_data.get("id")
+        name = (s_data.get("name") or f"Stage {idx}").strip()
+        stage_type = s_data.get("stage_type", StageType.CUSTOM)
+        description = s_data.get("description", "")
+        is_required = s_data.get("is_required", True)
+        is_active = s_data.get("is_active", True)
+        order = s_data.get("stage_order", idx)
+
+        if stage_type not in StageType.values:
+            stage_type = StageType.CUSTOM
+
+        # Valid existing stage
+        if s_id and s_id in existing_stages:
+            stage = existing_stages[s_id]
+            stage.name = name
+            stage.stage_type = stage_type
+            stage.description = description
+            stage.is_required = is_required
+            stage.is_active = is_active
+            stage.stage_order = order
+            stage.save()
+            kept_stage_ids.add(s_id)
+            result.append(stage)
+        else:
+            # New custom stage
+            stage = JobStage.objects.create(
+                job=job,
+                name=name,
+                stage_type=stage_type,
+                stage_order=order,
+                description=description,
+                is_required=is_required,
+                is_active=is_active,
+            )
+            kept_stage_ids.add(stage.id)
+            result.append(stage)
+
+    # Clean up removed stages
+    for s_id, old_stage in existing_stages.items():
+        if s_id not in kept_stage_ids:
+            if old_stage.application_progresses.exists():
+                old_stage.is_active = False
+                old_stage.save(update_fields=["is_active"])
+            else:
+                old_stage.delete()
+
+    return result
+
+
 @transaction.atomic
 def create_job_draft(user, validated_data: dict) -> Job:
-    """Creates a new job draft and seeds its default stages."""
+    """Creates a new job draft and seeds its default or custom stages."""
+    stages_data = validated_data.pop("stages", None)
+
     company = Company.objects.filter(admin_user=user).first()
     if not company:
         raise ApiError(
@@ -129,15 +190,19 @@ def create_job_draft(user, validated_data: dict) -> Job:
         **validated_data,
     )
 
-    seed_default_job_stages(job)
+    if stages_data:
+        sync_job_stages(job, stages_data)
+    else:
+        seed_default_job_stages(job)
+
     return job
 
 
+@transaction.atomic
 def update_job(job: Job, validated_data: dict) -> Job:
-    """Updates job fields.
+    """Updates job fields and synchronizes stages if provided."""
+    stages_data = validated_data.pop("stages", None)
 
-    Maintains draft status if currently a draft.
-    """
     for key, value in validated_data.items():
         setattr(job, key, value)
 
@@ -145,13 +210,20 @@ def update_job(job: Job, validated_data: dict) -> Job:
         job.draft_saved_at = timezone.now()
 
     job.save()
+
+    if stages_data is not None:
+        sync_job_stages(job, stages_data)
+
     return job
 
 
 def publish_job(job: Job) -> Job:
     """Enforces Decision #3 publish checks and marks job published."""
-    # 1. Company verification check
-    if job.company.verification_status != CompanyVerificationStatus.APPROVED:
+    # 1. Company verification check (Approved or undergoing Reverification)
+    if job.company.verification_status not in [
+        CompanyVerificationStatus.APPROVED,
+        CompanyVerificationStatus.REVERIFICATION,
+    ]:
         raise ApiError(
             code="company_not_verified",
             message="Your company profile must be verified and approved by an administrator before publishing jobs.",
@@ -254,21 +326,66 @@ def delete_job_draft(job: Job):
 
 @transaction.atomic
 def sync_job_skills(job: Job, skills_data: list[dict]) -> list[JobSkill]:
-    """Synchronizes required and optional skills for a job."""
+    """Synchronizes required and optional skills for a job, auto-provisioning custom skills in master data."""
+    from django.utils.text import slugify
+    from apps.master_data.models import SkillAliasRelation
+
     job.skills.all().delete()
     new_skills = []
+    seen_skill_ids = set()
+
     for item in skills_data:
-        skill_id = item["skill_id"]
-        master_item = MasterDataItem.objects.filter(id=skill_id, category="skill", is_active=True).first()
+        skill_id = item.get("skill_id")
+        skill_name = (item.get("skill_name") or "").strip()
+
+        master_item = None
+        if skill_id:
+            master_item = MasterDataItem.objects.filter(id=skill_id, category="skill", is_active=True).first()
+
+        if not master_item and skill_name:
+            # Check alias relation first
+            alias_rel = SkillAliasRelation.objects.filter(alias_text__iexact=skill_name).first()
+            if alias_rel:
+                master_item = alias_rel.target_skill
+            else:
+                # Check case-insensitive exact match
+                master_item = MasterDataItem.objects.filter(category="skill", value__iexact=skill_name).first()
+                if not master_item:
+                    slug_key = slugify(skill_name)
+                    if slug_key:
+                        master_item = MasterDataItem.objects.filter(category="skill", key=slug_key).first()
+
+                # If still not found, auto-create into MasterDataItem
+                if not master_item:
+                    slug_key = slugify(skill_name)
+                    if not slug_key:
+                        slug_key = skill_name.lower().replace(" ", "_")[:50]
+                    base_key = slug_key
+                    counter = 1
+                    while MasterDataItem.objects.filter(category="skill", key=slug_key).exists():
+                        slug_key = f"{base_key}_{counter}"
+                        counter += 1
+
+                    master_item = MasterDataItem.objects.create(
+                        category="skill",
+                        key=slug_key,
+                        value=skill_name,
+                        is_active=True,
+                    )
+
         if not master_item:
-            raise ValidationError({"skills": f"Skill ID {skill_id} is invalid or inactive."})
+            continue
+
+        if master_item.id in seen_skill_ids:
+            continue
+        seen_skill_ids.add(master_item.id)
 
         new_skills.append(
             JobSkill(
                 job=job,
                 skill=master_item,
                 is_required=item.get("is_required", True),
-                proficiency_level=item.get("proficiency_level"),
+                proficiency_level=item.get("proficiency_level") or "intermediate",
             )
         )
     return JobSkill.objects.bulk_create(new_skills)

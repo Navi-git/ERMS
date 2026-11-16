@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, Sparkles, AlertCircle } from 'lucide-react';
+import MarkdownEditor from '../common/MarkdownEditor';
 
 export default function EditProfileModal({ profile, onClose, onSave }) {
   const [formData, setFormData] = useState({
@@ -9,7 +10,7 @@ export default function EditProfileModal({ profile, onClose, onSave }) {
     seeking_status: profile?.seeking_status || 'actively_seeking',
     expected_salary_min: profile?.expected_salary_min || '',
     expected_salary_max: profile?.expected_salary_max || '',
-    currency: profile?.currency || 'USD',
+    currency: profile?.currency || 'INR',
     willing_to_relocate: profile?.willing_to_relocate || false,
     work_authorization_status: profile?.work_authorization_status || '',
     security_clearance: profile?.security_clearance || '',
@@ -122,19 +123,18 @@ export default function EditProfileModal({ profile, onClose, onSave }) {
             </div>
           </div>
 
-          {/* About Me / Summary */}
+          {/* About Me / Summary (Markdown Supported) */}
           <div>
-            <label className="block font-semibold text-[#191c1e] mb-1">
-              Professional Summary <span className="text-red-500">*</span>
-            </label>
-            <textarea
+            <MarkdownEditor
+              label="Professional Summary"
+              labelClassName="block font-semibold text-xs text-[#191c1e]"
+              required
               name="summary"
               rows={4}
               value={formData.summary}
               onChange={handleChange}
               placeholder="Highlight your background, core technical strengths, and what you are looking for next..."
-              className="w-full px-3 py-2 border border-[#c3c7cb] rounded-lg focus:outline-none focus:border-[#0058be] text-xs text-[#191c1e]"
-              required
+              textareaClassName="w-full px-3 py-2 border border-[#c3c7cb] rounded-xl focus:outline-none focus:border-[#0058be] text-xs text-[#191c1e]"
             />
           </div>
 
@@ -147,7 +147,7 @@ export default function EditProfileModal({ profile, onClose, onSave }) {
                 name="expected_salary_min"
                 value={formData.expected_salary_min}
                 onChange={handleChange}
-                placeholder="e.g. 100000"
+                placeholder="e.g. 600000"
                 className="w-full px-3 py-2 border border-[#c3c7cb] rounded-lg focus:outline-none focus:border-[#0058be] text-xs text-[#191c1e]"
               />
             </div>
@@ -158,7 +158,7 @@ export default function EditProfileModal({ profile, onClose, onSave }) {
                 name="expected_salary_max"
                 value={formData.expected_salary_max}
                 onChange={handleChange}
-                placeholder="e.g. 150000"
+                placeholder="e.g. 1200000"
                 className="w-full px-3 py-2 border border-[#c3c7cb] rounded-lg focus:outline-none focus:border-[#0058be] text-xs text-[#191c1e]"
               />
             </div>
@@ -170,11 +170,11 @@ export default function EditProfileModal({ profile, onClose, onSave }) {
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-[#c3c7cb] rounded-lg focus:outline-none focus:border-[#0058be] text-xs text-[#191c1e] bg-white"
               >
+                <option value="INR">INR (₹)</option>
                 <option value="USD">USD ($)</option>
                 <option value="EUR">EUR (€)</option>
                 <option value="GBP">GBP (£)</option>
                 <option value="CAD">CAD (C$)</option>
-                <option value="INR">INR (₹)</option>
               </select>
             </div>
           </div>

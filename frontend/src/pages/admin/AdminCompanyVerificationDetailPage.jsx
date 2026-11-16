@@ -201,6 +201,7 @@ export default function AdminCompanyVerificationDetailPage() {
   const isApproved = status === 'APPROVED';
   const isUnderReview = status === 'UNDER_REVIEW';
   const isPending = status === 'PENDING';
+  const isReverification = status === 'REVERIFICATION';
   const isRejected = status === 'REJECTED';
 
   const historyList = verif.review_history || [];
@@ -235,6 +236,11 @@ export default function AdminCompanyVerificationDetailPage() {
                 {isApproved && (
                   <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">
                     APPROVED
+                  </span>
+                )}
+                {isReverification && (
+                  <span className="px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 text-xs font-semibold border border-purple-200">
+                    REVERIFICATION
                   </span>
                 )}
                 {isUnderReview && (
@@ -303,6 +309,19 @@ export default function AdminCompanyVerificationDetailPage() {
             )}
           </div>
         </div>
+
+        {/* Reverification Notice Banner */}
+        {isReverification && (
+          <div className="p-4 bg-purple-50 border border-purple-200 rounded-2xl flex items-start gap-3 text-xs text-purple-900">
+            <Clock className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-sm text-purple-950">Compliance Reverification</p>
+              <p className="mt-0.5 text-purple-800">
+                This previously approved company has submitted updated corporate information or compliance filings for review. Audit the attached documents below and click Approve to finalize.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Rejection Notice Banner */}
         {isRejected && verif.rejection_reason && (

@@ -38,4 +38,7 @@ class IsVerifiedRecruiter(BasePermission):
         if not company:
             return False
 
-        return company.verification_status == CompanyVerificationStatus.APPROVED
+        return company.verification_status in [
+            CompanyVerificationStatus.APPROVED,
+            CompanyVerificationStatus.REVERIFICATION,
+        ]

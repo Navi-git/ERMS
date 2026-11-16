@@ -31,6 +31,7 @@ import RecruiterResumeViewerModal from '../../components/recruiter/RecruiterResu
 import RejectionReasonModal from '../../components/recruiter/RejectionReasonModal';
 import { useToast } from '../../context/ToastContext';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
+import MarkdownContent from '../../components/common/MarkdownContent';
 
 const LinkedinIcon = (props) => (
   <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
@@ -234,6 +235,30 @@ export default function RecruiterApplicationDetailPage() {
                 <span>Schedule Interview</span>
               </button>
 
+              {/* Flexible Advance Stage Dropdown */}
+              {stages.length > 0 && (
+                <div className="relative">
+                  <select
+                    value={currentStage.id || ''}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handleStageMove(parseInt(e.target.value, 10));
+                      }
+                    }}
+                    className="px-3.5 py-2.5 rounded-xl border border-[#c1c7ce] bg-white text-xs font-bold text-[#191c1e] hover:border-[#0058be] outline-none cursor-pointer shadow-xs transition-colors"
+                  >
+                    <option value="" disabled>
+                      Move to Stage...
+                    </option>
+                    {stages.map((st) => (
+                      <option key={st.id} value={st.id}>
+                        Stage {st.order}: {st.name} {currentStage.id === st.id ? '(Current)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Status Actions */}
               <button
                 type="button"
@@ -345,32 +370,69 @@ export default function RecruiterApplicationDetailPage() {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div
+              className={`grid gap-3 ${
+                stages.length === 1
+                  ? 'grid-cols-1'
+                  : stages.length === 2
+                  ? 'grid-cols-2'
+                  : stages.length === 3
+                  ? 'grid-cols-1 sm:grid-cols-3'
+                  : stages.length === 4
+                  ? 'grid-cols-2 sm:grid-cols-4'
+                  : stages.length === 5
+                  ? 'grid-cols-2 sm:grid-cols-5'
+                  : stages.length === 6
+                  ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6'
+                  : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6'
+              }`}
+            >
               {stages.map((st) => {
+                const activeOrder = currentStage.order || 1;
                 const isCurrent = currentStage.id === st.id;
+                const isCompleted = st.order < activeOrder;
+                const isPending = st.order > activeOrder;
+
                 return (
                   <button
                     key={st.id}
                     type="button"
                     onClick={() => handleStageMove(st.id)}
+                    title={`Click to move candidate to ${st.name}`}
                     className={`p-3 rounded-2xl border text-center transition-all cursor-pointer ${
                       isCurrent
-                        ? 'border-[#0058be] bg-[#f0f4fd] ring-2 ring-[#0058be]/20'
-                        : 'border-[#e0e3e5] bg-white hover:border-[#c1c7ce]'
+                        ? 'border-[#0058be] bg-[#f0f4fd] ring-2 ring-[#0058be]/20 shadow-xs'
+                        : isCompleted
+                        ? 'border-emerald-200 bg-emerald-50/50 hover:border-emerald-300'
+                        : 'border-[#e0e3e5] bg-[#f7f9fb] hover:border-[#c1c7ce] opacity-75'
                     }`}
                   >
-                    <div className="flex items-center justify-center mx-auto mb-1">
-                      <div
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                          isCurrent ? 'bg-[#0058be] text-white' : 'bg-[#f1f4f6] text-[#71787e]'
-                        }`}
-                      >
-                        {st.order}
-                      </div>
+                    <div className="flex items-center justify-center mx-auto mb-1.5">
+                      {isCompleted ? (
+                        <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        </div>
+                      ) : isCurrent ? (
+                        <div className="w-6 h-6 rounded-full bg-[#0058be] text-white text-xs font-bold flex items-center justify-center shadow-xs">
+                          {st.order}
+                        </div>
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-[#c1c7ce] text-white text-xs font-bold flex items-center justify-center">
+                          {st.order}
+                        </div>
+                      )}
                     </div>
                     <p className="text-xs font-bold text-[#191c1e] truncate">{st.name}</p>
-                    <span className="text-[10px] font-semibold text-[#71787e] block">
-                      {isCurrent ? 'Active Stage' : 'Click to Move'}
+                    <span
+                      className={`text-[10px] font-semibold uppercase tracking-wider block mt-0.5 ${
+                        isCurrent
+                          ? 'text-[#0058be]'
+                          : isCompleted
+                          ? 'text-emerald-700'
+                          : 'text-[#71787e]'
+                      }`}
+                    >
+                      {isCurrent ? 'In Progress' : isCompleted ? 'Completed' : 'Pending'}
                     </span>
                   </button>
                 );
@@ -547,9 +609,9 @@ export default function RecruiterApplicationDetailPage() {
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[#71787e]">
                       Cover Letter
                     </h3>
-                    <p className="text-xs text-[#41474d] whitespace-pre-line leading-relaxed bg-[#f7f9fb] p-4 rounded-2xl border border-[#e0e3e5]">
-                      {application.cover_letter}
-                    </p>
+                    <div className="text-xs text-[#41474d] leading-relaxed bg-[#f7f9fb] p-4 rounded-2xl border border-[#e0e3e5]">
+                      <MarkdownContent content={application.cover_letter} />
+                    </div>
                   </div>
                 )}
 

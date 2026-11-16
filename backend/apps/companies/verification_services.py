@@ -32,7 +32,7 @@ def get_or_create_verification(company, user):
     """Retrieve existing verification submission or initialize draft."""
     verification = (
         CompanyVerification.objects.filter(company=company)
-        .order_by("-submitted_at")
+        .order_by("-id")
         .first()
     )
     if not verification:
@@ -40,7 +40,8 @@ def get_or_create_verification(company, user):
             company=company,
             submitted_by=user,
             designated_recruiter=user,
-            status=CompanyVerificationStatus.PENDING,
+            status=CompanyVerificationStatus.DRAFT,
+            submitted_at=None,
             review_history=[{
                 "action": "draft_created",
                 "timestamp": timezone.now().isoformat(),
@@ -147,13 +148,8 @@ def save_verification_draft(company, user, validated_data):
     # Update talent tracks if provided
     talent_track_ids = validated_data.get("talent_track_ids")
     if talent_track_ids is not None:
-        CompanyTalentTrack.objects.filter(company=company).delete()
-        valid_items = MasterDataItem.objects.filter(id__in=talent_track_ids, category="talent_track")
-        to_create = [
-            CompanyTalentTrack(company=company, master_data_item=item)
-            for item in valid_items
-        ]
-        CompanyTalentTrack.objects.bulk_create(to_create)
+        from apps.companies.recruiter_services import reconcile_company_talent_tracks
+        reconcile_company_talent_tracks(company, talent_track_ids)
 
     return verification
 
@@ -188,24 +184,37 @@ def submit_verification_for_review(company, user, validated_data=None):
     if VerificationDocumentType.TAX_FORM not in current_docs:
         raise ApiError("missing_document", "Tax Form (W-9 / Form 1099 or National Certificate) is required.", 400)
 
+    # Determine next status:
+    # If company is already APPROVED or in REVERIFICATION, submitting updates places it in REVERIFICATION
+    # while allowing continuous uninterrupted platform usage.
+    is_reverification = company.verification_status in [
+        CompanyVerificationStatus.APPROVED,
+        CompanyVerificationStatus.REVERIFICATION,
+    ]
+    new_status = (
+        CompanyVerificationStatus.REVERIFICATION
+        if is_reverification
+        else CompanyVerificationStatus.PENDING
+    )
+
     # Update verification status
     now = timezone.now()
-    verification.status = CompanyVerificationStatus.PENDING
+    verification.status = new_status
     verification.submitted_at = now
     verification.submitted_by = user
     verification.designated_recruiter = user
 
     history = verification.review_history or []
     history.append({
-        "action": "submitted_for_review",
+        "action": "reverification_submitted" if is_reverification else "submitted_for_review",
         "timestamp": now.isoformat(),
         "by": user.email,
     })
     verification.review_history = history
     verification.save()
 
-    # Update company status to PENDING
-    company.verification_status = CompanyVerificationStatus.PENDING
+    # Update company status
+    company.verification_status = new_status
     company.save(update_fields=["verification_status", "updated_at"])
 
     return verification

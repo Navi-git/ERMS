@@ -170,7 +170,7 @@ export default function RecruiterJobPostingsPage() {
 
   return (
     <RecruiterLayout>
-      <div className="space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Header (Figma Page 9) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#e0e3e5]">
           <div>
@@ -500,6 +500,11 @@ export default function RecruiterJobPostingsPage() {
                           <div className="text-[11px] text-[#71787e] mt-0.5">
                             {job.location || 'Remote'} • {job.employment_type?.replace('_', ' ')}
                           </div>
+                          {job.job_status === 'on_hold' && job.on_hold_reason && (
+                            <div className="mt-1 text-[11px] text-[#b06000] bg-[#fff8e1] px-2 py-0.5 rounded-md border border-[#ffe082] w-fit max-w-md line-clamp-1">
+                              <span className="font-semibold">Reason:</span> {job.on_hold_reason}
+                            </div>
+                          )}
                         </td>
 
                         <td className="py-4 px-4 text-[#41474d] font-medium">
