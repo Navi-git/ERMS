@@ -8,6 +8,9 @@ def _isolated_cache(settings):
     settings.CACHES = {
         "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "erms-tests"}
     }
+    settings.CHANNEL_LAYERS = {
+        "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
+    }
     from django.core.cache import cache
 
     cache.clear()
