@@ -17,6 +17,8 @@ SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]  # fail loudly if missing
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 INSTALLED_APPS = [
+    # ASGI server must be first
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -28,6 +30,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",  # lets logout invalidate refresh tokens
     "corsheaders",
+    "channels",
     # project apps
     "apps.accounts",
     "apps.master_data",
@@ -35,6 +38,7 @@ INSTALLED_APPS = [
     "apps.candidates",
     "apps.jobs",
     "apps.applications",
+    "apps.notifications",
 ]
 
 MIDDLEWARE = [
@@ -50,6 +54,7 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 TEMPLATES = [
     {
@@ -139,6 +144,23 @@ if REDIS_URL:
     }
 else:
     CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+
+# Channel Layers: Uses Redis when REDIS_URL is present, InMemory for standalone testing
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+            },
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
 
 # OTP rules (the code itself lives in otp_verifications; counters live in the cache/Redis)
 OTP_LENGTH = 6  # matches otp_verifications.otp_code varchar(6)

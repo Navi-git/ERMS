@@ -10,6 +10,8 @@ from apps.applications.models import (
     ApplicationStageProgress,
     ApplicationMaterial,
 )
+from apps.notifications.models import NotificationType
+from apps.notifications.services import notification_service
 
 
 class ApplicationTransitionService:
@@ -155,6 +157,29 @@ class ApplicationTransitionService:
                     file_type=mat.get("file_type", "other"),
                 )
 
+        # Trigger in-app notifications
+        try:
+            notification_service.notify_company_recruiter(
+                company=job.company,
+                notification_type=NotificationType.APPLICATION_RECEIVED,
+                title=f"New Applicant: {job.title}",
+                message=f"{candidate_user.full_name} applied for {job.title}.",
+                redirect_url=f"/recruiter/applications/{application.id}",
+                source_type="application",
+                source_id=application.id,
+            )
+            notification_service.notify(
+                user=candidate_user,
+                notification_type=NotificationType.APPLICATION_RECEIVED,
+                title=f"Application Delivered: {job.title}",
+                message=f"Your application for {job.title} at {job.company.name} was successfully submitted.",
+                redirect_url=f"/candidate/applications/{application.id}",
+                source_type="application",
+                source_id=application.id,
+            )
+        except Exception:
+            pass
+
         return application
 
     @classmethod
@@ -292,6 +317,19 @@ class ApplicationTransitionService:
             status_updates.append("updated_at")
             application.save(update_fields=status_updates)
 
+        try:
+            notification_service.notify(
+                user=application.candidate.user,
+                notification_type=NotificationType.APPLICATION_STATUS_CHANGED,
+                title=f"Application Update: {application.job.title}",
+                message=f"Your application has advanced to '{target_stage.name}'.",
+                redirect_url=f"/candidate/applications/{application.id}",
+                source_type="application",
+                source_id=application.id,
+            )
+        except Exception:
+            pass
+
         return new_progress
 
     @classmethod
@@ -300,6 +338,20 @@ class ApplicationTransitionService:
         application.application_status = ApplicationStatus.SHORTLISTED
         application.updated_at = timezone.now()
         application.save(update_fields=["application_status", "updated_at"])
+
+        try:
+            notification_service.notify(
+                user=application.candidate.user,
+                notification_type=NotificationType.APPLICATION_STATUS_CHANGED,
+                title=f"Application Shortlisted: {application.job.title}",
+                message=f"Congratulations! You have been shortlisted for {application.job.title} at {application.job.company.name}.",
+                redirect_url=f"/candidate/applications/{application.id}",
+                source_type="application",
+                source_id=application.id,
+            )
+        except Exception:
+            pass
+
         return application
 
     @classmethod
@@ -326,6 +378,19 @@ class ApplicationTransitionService:
             application=application,
             completed_at__isnull=True,
         ).update(completed_at=timezone.now())
+
+        try:
+            notification_service.notify(
+                user=application.candidate.user,
+                notification_type=NotificationType.APPLICATION_STATUS_CHANGED,
+                title=f"Application Update: {application.job.title}",
+                message=f"Thank you for your interest in {application.job.title}. The recruiting team has decided not to move forward with your application.",
+                redirect_url=f"/candidate/applications/{application.id}",
+                source_type="application",
+                source_id=application.id,
+            )
+        except Exception:
+            pass
 
         return application
 
