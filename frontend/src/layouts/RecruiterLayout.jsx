@@ -22,11 +22,13 @@ import {
   ShieldCheck,
   Clock,
   AlertTriangle,
+  Search,
 } from 'lucide-react';
 import authApi from '../api/authApi';
 import companyApi from '../api/companyApi';
 import { logout } from '../store/slices/authSlice';
 import { resolvePhotoUrl } from '../utils/imageUrl';
+import NotificationDropdown from '../components/common/NotificationDropdown';
 
 export default function RecruiterLayout({ children }) {
   const navigate = useNavigate();
@@ -207,6 +209,39 @@ export default function RecruiterLayout({ children }) {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col pl-64 min-w-0">
+        {/* Topbar matching Figma Screen 2 */}
+        <header className="h-16 px-8 bg-white border-b border-slate-200/80 flex items-center justify-between sticky top-0 z-20">
+          <div className="flex-1 max-w-md">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search candidates, jobs, drafts..."
+                className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-100/70 border border-transparent rounded-lg focus:outline-none focus:bg-white focus:border-blue-600 text-slate-900 transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <NotificationDropdown />
+            <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
+              <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs ring-1 ring-slate-200 overflow-hidden">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt={user?.full_name} className="w-full h-full object-cover" />
+                ) : (
+                  user?.full_name?.slice(0, 2).toUpperCase() || 'RC'
+                )}
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-xs font-bold text-slate-900 leading-tight">
+                  {user?.full_name || 'Senior Recruiter'}
+                </p>
+                <p className="text-[10px] text-slate-500">{company?.name || 'Recruiter'}</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
         {/* Verification Alert Banner (Figma Page 8 & Page 9) */}
         {!isVerified && (
           <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center justify-between text-xs text-amber-900 sticky top-0 z-20">

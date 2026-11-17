@@ -21,6 +21,7 @@ import {
 import authApi from '../../api/authApi';
 import { logout } from '../../store/slices/authSlice';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
+import NotificationDropdown from '../common/NotificationDropdown';
 
 export default function AdminLayout({ children }) {
   const navigate = useNavigate();
@@ -138,10 +139,7 @@ export default function AdminLayout({ children }) {
             <button className="text-[#717680] hover:text-[#191c1e] p-1.5 rounded-lg hover:bg-[#f2f4f7]">
               <HelpCircle className="w-5 h-5" />
             </button>
-            <button className="relative text-[#717680] hover:text-[#191c1e] p-1.5 rounded-lg hover:bg-[#f2f4f7]">
-              <Bell className="w-5 h-5" />
-              <span className="w-2 h-2 rounded-full bg-rose-500 absolute top-1.5 right-1.5 ring-2 ring-white" />
-            </button>
+            <NotificationDropdown />
 
             {/* Profile Pill */}
             <div className="flex items-center gap-3 pl-3 border-l border-[#e5e8ec]">

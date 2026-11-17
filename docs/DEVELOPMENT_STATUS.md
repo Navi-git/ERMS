@@ -37,5 +37,20 @@ DONE: tests passed (102/102, verified by owner)
 | 7 | Candidate Portal Frontend (Apply Modal, Submitted Success Modal, My Applications Hub, Application Detail View) | DONE: Vite production build passed |
 | 8 | Recruiter Portal Frontend (Job Pipeline Kanban Board, All Applicants Hub, Screening & Candidate Dossier, Resume Viewer Modal, Rejection Reason Modal) | DONE: Vite production build passed |
 
+## Module 8: Notifications & Broadcasts (Backend & Frontend)
+
+| Step | Scope | Status |
+|---|---|---|
+| 1 | ERD models (`notifications` Table 35 with `(user, is_read, created_at)` index, and `broadcasts` table) | DONE: migrated to PostgreSQL with indexes |
+| 2 | Real-time Architecture (Django Channels, Daphne ASGI server, Redis channel layers & InMemory fallback) | DONE: fully configured and tested |
+| 3 | WebSocket JWT Authentication & Consumer (`JwtAuthMiddleware`, `NotificationConsumer` with personal & broadcast groups) | DONE: live WebSocket sync verified |
+| 4 | Transaction-safe Service Layer (`notification_service`: `notify`, `notify_many`, `notify_company_recruiter`, `broadcast`, `mark_as_read`, `mark_all_as_read`) | DONE: `transaction.on_commit` dispatching & safe URL checks |
+| 5 | Cross-Module Event Hooks (`ApplicationTransitionService`: apply, stage moves, shortlist, reject, hire emit live notifications) | DONE: verified with integration tests |
+| 6 | REST APIs (`/api/v1/notifications/`, `unread-count/`, `read/`, `read-all/`, `admin/broadcasts/`) | DONE: all 7 test cases passed (184/189 total suite passing) |
+| 7 | Global Bell Flyout (`NotificationDropdown.jsx` with unread count badge, Live Sync indicator, quick tabs, read-and-redirect) | DONE: integrated across Candidate, Recruiter, and Admin layouts |
+| 8 | Candidate Portal Hub (`CandidateNotificationsPage.jsx` matching Figma Screen 1) | DONE: Vite production build passed |
+| 9 | Recruiter Portal Hub (`RecruiterNotificationsPage.jsx` matching Figma Screen 2) | DONE: Vite production build passed |
+| 10 | Super Admin Portal Hub & Broadcast Modal (`AdminNotificationsPage.jsx` & `CreateBroadcastModal.jsx` matching Figma Screen 3 & 4) | DONE: Vite production build passed |
+
 ## Next task
-Module 8: Interviews & Scheduling (Interview scheduling, panel assignment, candidate self-scheduling, scorecard evaluation, calendar integration).
+Module 9: Interviews & Scheduling (Interview scheduling, panel assignment, candidate self-scheduling, scorecard evaluation, calendar integration).

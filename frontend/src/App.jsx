@@ -40,12 +40,17 @@ import RecruiterAllApplicantsPage from './pages/recruiter/RecruiterAllApplicants
 import RecruiterApplicationDetailPage from './pages/recruiter/RecruiterApplicationDetailPage';
 import AdminJobsManagementPage from './pages/admin/AdminJobsManagementPage';
 import AdminJobDetailPage from './pages/admin/AdminJobDetailPage';
+import CandidateNotificationsPage from './pages/candidate/CandidateNotificationsPage';
+import RecruiterNotificationsPage from './pages/recruiter/RecruiterNotificationsPage';
+import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
 import { ToastProvider } from './context/ToastContext';
+import { NotificationProvider } from './context/NotificationContext';
 
 export default function App() {
   return (
     <ToastProvider>
-      <Routes>
+      <NotificationProvider>
+        <Routes>
         {/* Public Landing & Company Directory & Job Discovery */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/companies" element={<BrowseCompaniesPage />} />
@@ -73,6 +78,7 @@ export default function App() {
           <Route path="/candidate/applications" element={<CandidateApplicationsPage />} />
           <Route path="/candidate/applications/:id" element={<CandidateApplicationDetailPage />} />
           <Route path="/candidate/saved-jobs" element={<SavedJobsPage />} />
+          <Route path="/candidate/notifications" element={<CandidateNotificationsPage />} />
 
           {/* Recruiter Company Management & Verification */}
           <Route path="/recruiter/company/profile" element={<RecruiterCompanyProfilePage />} />
@@ -90,6 +96,7 @@ export default function App() {
           {/* Recruiter Applications & Screening */}
           <Route path="/recruiter/applicants" element={<RecruiterAllApplicantsPage />} />
           <Route path="/recruiter/applications/:id" element={<RecruiterApplicationDetailPage />} />
+          <Route path="/recruiter/notifications" element={<RecruiterNotificationsPage />} />
 
           {/* Fallbacks for routes under development to keep users in their portal dashboard */}
           <Route path="/recruiter/*" element={<Navigate to="/dashboard" replace />} />
@@ -112,7 +119,7 @@ export default function App() {
           <Route path="/admin/reports" element={<AdminComingSoonPage />} />
           <Route path="/admin/analytics" element={<AdminComingSoonPage />} />
           <Route path="/admin/audit-log" element={<AdminComingSoonPage />} />
-          <Route path="/admin/notifications" element={<AdminComingSoonPage />} />
+          <Route path="/admin/notifications" element={<AdminNotificationsPage />} />
           <Route path="/admin/settings" element={<AdminComingSoonPage />} />
           <Route path="/admin/help" element={<AdminComingSoonPage />} />
           <Route path="/admin/*" element={<Navigate to="/admin/dashboard" replace />} />
@@ -121,6 +128,7 @@ export default function App() {
         {/* Catch-all redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+    </NotificationProvider>
     </ToastProvider>
   );
 }

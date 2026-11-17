@@ -18,6 +18,7 @@ import {
 import authApi from '../api/authApi';
 import { logout } from '../store/slices/authSlice';
 import { resolvePhotoUrl } from '../utils/imageUrl';
+import NotificationDropdown from '../components/common/NotificationDropdown';
 
 export default function CandidateLayout({ children }) {
   const navigate = useNavigate();
@@ -47,6 +48,7 @@ export default function CandidateLayout({ children }) {
     { name: 'Resumes & ATS', icon: FileText, path: '/candidate/resumes' },
     { name: 'Applications', icon: Briefcase, path: '/candidate/applications' },
     { name: 'Saved Jobs', icon: Bookmark, path: '/candidate/saved-jobs' },
+    { name: 'Notifications', icon: Bell, path: '/candidate/notifications' },
   ];
 
   const avatarUrl = resolvePhotoUrl(user?.profile_picture_url);
@@ -135,13 +137,7 @@ export default function CandidateLayout({ children }) {
           </div>
 
           <div className="flex items-center gap-4">
-            <button
-              title="Notifications"
-              className="p-2 text-[#71787e] hover:text-[#191c1e] hover:bg-[#f1f4f6] rounded-full transition-colors relative"
-            >
-              <Bell className="w-4 h-4" />
-              <span className="w-2 h-2 bg-[#0058be] rounded-full absolute top-1.5 right-1.5 ring-2 ring-white" />
-            </button>
+            <NotificationDropdown />
 
             {/* Profile Pill */}
             <div className="relative">
