@@ -1,3 +1,5 @@
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.db import transaction
 from django.utils import timezone
 from shared.exceptions.api import ApiError
@@ -317,6 +319,17 @@ class ApplicationTransitionService:
             status_updates.append("updated_at")
             application.save(update_fields=status_updates)
 
+        extra_data = {
+            "application_id": application.id,
+            "application_status": application.application_status,
+            "current_stage": {
+                "id": target_stage.id,
+                "name": target_stage.name,
+                "type": target_stage.stage_type,
+                "order": target_stage.stage_order,
+            },
+        }
+
         try:
             notification_service.notify(
                 user=application.candidate.user,
@@ -326,7 +339,24 @@ class ApplicationTransitionService:
                 redirect_url=f"/candidate/applications/{application.id}",
                 source_type="application",
                 source_id=application.id,
+                extra=extra_data,
             )
+        except Exception:
+            pass
+
+        try:
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                candidate_uid = application.candidate.user_id
+                transaction.on_commit(
+                    lambda: async_to_sync(channel_layer.group_send)(
+                        f"user_{candidate_uid}",
+                        {
+                            "type": "application.update",
+                            "data": extra_data,
+                        },
+                    )
+                )
         except Exception:
             pass
 
@@ -339,6 +369,11 @@ class ApplicationTransitionService:
         application.updated_at = timezone.now()
         application.save(update_fields=["application_status", "updated_at"])
 
+        extra_data = {
+            "application_id": application.id,
+            "application_status": application.application_status,
+        }
+
         try:
             notification_service.notify(
                 user=application.candidate.user,
@@ -348,7 +383,24 @@ class ApplicationTransitionService:
                 redirect_url=f"/candidate/applications/{application.id}",
                 source_type="application",
                 source_id=application.id,
+                extra=extra_data,
             )
+        except Exception:
+            pass
+
+        try:
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                candidate_uid = application.candidate.user_id
+                transaction.on_commit(
+                    lambda: async_to_sync(channel_layer.group_send)(
+                        f"user_{candidate_uid}",
+                        {
+                            "type": "application.update",
+                            "data": extra_data,
+                        },
+                    )
+                )
         except Exception:
             pass
 
@@ -379,6 +431,12 @@ class ApplicationTransitionService:
             completed_at__isnull=True,
         ).update(completed_at=timezone.now())
 
+        extra_data = {
+            "application_id": application.id,
+            "application_status": application.application_status,
+            "rejection_reason": rejection_reason.strip(),
+        }
+
         try:
             notification_service.notify(
                 user=application.candidate.user,
@@ -388,7 +446,24 @@ class ApplicationTransitionService:
                 redirect_url=f"/candidate/applications/{application.id}",
                 source_type="application",
                 source_id=application.id,
+                extra=extra_data,
             )
+        except Exception:
+            pass
+
+        try:
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                candidate_uid = application.candidate.user_id
+                transaction.on_commit(
+                    lambda: async_to_sync(channel_layer.group_send)(
+                        f"user_{candidate_uid}",
+                        {
+                            "type": "application.update",
+                            "data": extra_data,
+                        },
+                    )
+                )
         except Exception:
             pass
 

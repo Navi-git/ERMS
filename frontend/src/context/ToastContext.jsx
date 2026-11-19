@@ -5,12 +5,23 @@ const ToastContext = createContext(null);
 
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
+  const recentToastsRef = React.useRef(new Map());
 
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   const showToast = useCallback((message, type = 'success', title = null, duration = 4000) => {
+    if (!message) return;
+    const key = `${type}:${title || ''}:${message}`;
+    const now = Date.now();
+    const lastTime = recentToastsRef.current.get(key);
+    if (lastTime && now - lastTime < 2000) {
+      // Suppress duplicate identical toast within 2 seconds
+      return;
+    }
+    recentToastsRef.current.set(key, now);
+
     const id = Date.now() + Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, message, type, title, duration }]);
 

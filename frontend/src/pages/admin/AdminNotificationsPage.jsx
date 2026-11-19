@@ -3,6 +3,7 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import CreateBroadcastModal from '../../components/admin/CreateBroadcastModal';
 import { notificationApi } from '../../api/notificationApi';
 import { useToast } from '../../context/ToastContext';
+import { useNotifications } from '../../context/NotificationContext';
 import {
   Send,
   Search,
@@ -21,6 +22,7 @@ import {
 
 export default function AdminNotificationsPage() {
   const { showToast } = useToast();
+  const { subscribe } = useNotifications();
 
   const [broadcasts, setBroadcasts] = useState([]);
   const [metrics, setMetrics] = useState({
@@ -37,35 +39,75 @@ export default function AdminNotificationsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  const loadBroadcastData = useCallback(async (page = 1) => {
+  const loadBroadcastData = useCallback(async (page = 1, isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const response = await notificationApi.getAdminBroadcasts({ page, page_size: 10 });
       const data = response.data;
-      setBroadcasts(data?.results || []);
+      const incoming = data?.results || [];
+      const seen = new Set();
+      const deduped = [];
+      for (const item of incoming) {
+        const key = String(item.id);
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(item);
+        }
+      }
+      setBroadcasts(deduped);
       if (data?.metrics) {
         setMetrics(data.metrics);
       }
       setTotalCount(data?.count || 0);
       setTotalPages(Math.ceil((data?.count || 0) / 10) || 1);
     } catch (err) {
-      showToast('Failed to load admin broadcasts', 'error');
+      if (!isSilent) showToast('Failed to load admin broadcasts', 'error');
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   }, [showToast]);
 
   useEffect(() => {
-    loadBroadcastData(currentPage);
+    loadBroadcastData(currentPage, false);
   }, [loadBroadcastData, currentPage]);
 
-  const filteredBroadcasts = broadcasts.filter((item) => {
-    const matchesSearch =
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.message.toLowerCase().includes(searchQuery.toLowerCase());
-    if (selectedCategory === 'All') return matchesSearch;
-    return matchesSearch && item.notification_type?.toLowerCase() === selectedCategory.toLowerCase();
-  });
+  // Real-time synchronization for broadcasts & platform metrics
+  useEffect(() => {
+    const handleWsEvent = (payload) => {
+      if (payload?.type === 'broadcast.alert') {
+        loadBroadcastData(1, true);
+      }
+    };
+
+    const unsubscribe = subscribe ? subscribe(handleWsEvent) : () => {};
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadBroadcastData(currentPage, true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [subscribe, loadBroadcastData, currentPage]);
+
+  const filteredBroadcasts = React.useMemo(() => {
+    const seen = new Set();
+    return broadcasts.filter((item) => {
+      const key = String(item.id);
+      if (seen.has(key)) return false;
+      seen.add(key);
+
+      const matchesSearch =
+        (item.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.message || '').toLowerCase().includes(searchQuery.toLowerCase());
+      if (selectedCategory === 'All') return matchesSearch;
+      return matchesSearch && item.notification_type?.toLowerCase() === selectedCategory.toLowerCase();
+    });
+  }, [broadcasts, searchQuery, selectedCategory]);
 
   const formatTimestamp = (isoString) => {
     if (!isoString) return '';
@@ -306,7 +348,7 @@ export default function AdminNotificationsPage() {
         <CreateBroadcastModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onBroadcastSent={() => loadBroadcastData(1)}
+          onBroadcastSent={() => loadBroadcastData(1, true)}
         />
       </div>
     </AdminLayout>

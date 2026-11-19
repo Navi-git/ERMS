@@ -23,7 +23,7 @@ import {
 
 export default function RecruiterNotificationsPage() {
   const navigate = useNavigate();
-  const { unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { unreadCount, markAsRead, markAllAsRead, subscribe } = useNotifications();
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState('all'); // all, unread, applications, interviews, messages, billing
@@ -33,9 +33,9 @@ export default function RecruiterNotificationsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  const loadNotifications = useCallback(async (page = 1, tab = activeTab) => {
+  const loadNotifications = useCallback(async (page = 1, tab = activeTab, isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       const params = { page, page_size: 10 };
       if (tab === 'unread') {
         params.unread = true;
@@ -49,15 +49,58 @@ export default function RecruiterNotificationsPage() {
       setTotalCount(data?.count || 0);
       setTotalPages(Math.ceil((data?.count || 0) / 10) || 1);
     } catch (err) {
-      showToast('Failed to load notifications', 'error');
+      if (!isSilent) showToast('Failed to load notifications', 'error');
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   }, [activeTab, showToast]);
 
   useEffect(() => {
-    loadNotifications(currentPage, activeTab);
+    loadNotifications(currentPage, activeTab, false);
   }, [loadNotifications, currentPage, activeTab]);
+
+  // Real-time synchronization via WebSocket & page visibility
+  useEffect(() => {
+    const handleWsEvent = (payload) => {
+      if (payload?.type === 'notification.alert' && payload?.data) {
+        const newNotif = payload.data;
+        setNotifications((prev) => {
+          const exists = prev.some((n) => n.id === newNotif.id);
+          if (exists) return prev;
+          return [newNotif, ...prev];
+        });
+        setTotalCount((prev) => prev + 1);
+      } else if (payload?.type === 'unread_count.update') {
+        if (payload.notification_id) {
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === payload.notification_id ? { ...n, is_read: true } : n))
+          );
+        } else if (payload.unread_count === 0) {
+          setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+        }
+      } else if (payload?.type === 'notification.read' && payload?.id) {
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === payload.id ? { ...n, is_read: true } : n))
+        );
+      } else if (payload?.type === 'notification.read_all') {
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      }
+    };
+
+    const unsubscribe = subscribe ? subscribe(handleWsEvent) : () => {};
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadNotifications(currentPage, activeTab, true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [subscribe, loadNotifications, currentPage, activeTab]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -66,10 +109,11 @@ export default function RecruiterNotificationsPage() {
 
   const handleItemClick = async (notif) => {
     if (!notif.is_read) {
-      await markAsRead(notif.id);
+      // Instantly remove unread dot indicator in local list
       setNotifications((prev) =>
         prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n))
       );
+      await markAsRead(notif.id);
     }
     if (notif.redirect_url) {
       navigate(notif.redirect_url);
@@ -77,8 +121,8 @@ export default function RecruiterNotificationsPage() {
   };
 
   const handleMarkAllRead = async () => {
-    await markAllAsRead();
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    await markAllAsRead();
   };
 
   const groupNotifications = (items) => {

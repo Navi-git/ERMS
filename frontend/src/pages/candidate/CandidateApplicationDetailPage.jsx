@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -24,6 +24,7 @@ import {
 import CandidateLayout from '../../layouts/CandidateLayout';
 import applicationApi from '../../api/applicationApi';
 import { useToast } from '../../context/ToastContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
 import MarkdownContent from '../../components/common/MarkdownContent';
 
@@ -31,6 +32,7 @@ export default function CandidateApplicationDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { subscribe, markAsRead, recentNotifications } = useNotifications();
 
   const [application, setApplication] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,22 +46,79 @@ export default function CandidateApplicationDetailPage() {
   const [addingMaterial, setAddingMaterial] = useState(false);
   const [showAddMaterialModal, setShowAddMaterialModal] = useState(false);
 
-  useEffect(() => {
-    fetchApplicationDetail();
-  }, [id]);
-
-  const fetchApplicationDetail = async () => {
-    setLoading(true);
+  const fetchApplicationDetail = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const res = await applicationApi.getCandidateApplicationDetail(id);
       setApplication(res.data);
     } catch (err) {
-      showToast('Application not found or access denied.', 'error');
-      navigate('/candidate/applications');
+      if (!isSilent) {
+        showToast('Application not found or access denied.', 'error');
+        navigate('/candidate/applications');
+      }
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
-  };
+  }, [id, navigate, showToast]);
+
+  useEffect(() => {
+    fetchApplicationDetail(false);
+  }, [fetchApplicationDetail]);
+
+  // Real-time automatic status updates for this application
+  useEffect(() => {
+    const handleUpdate = (payload) => {
+      const isMatch =
+        (payload?.type === 'application.update' && String(payload?.data?.application_id) === String(id)) ||
+        (payload?.type === 'notification.alert' &&
+          payload?.data?.source_type === 'application' &&
+          String(payload?.data?.source_id) === String(id));
+
+      if (isMatch) {
+        fetchApplicationDetail(true);
+      }
+    };
+
+    const unsubscribe = subscribe ? subscribe(handleUpdate) : () => {};
+
+    const handleWindowEvent = (e) => {
+      if (e.detail && String(e.detail.application_id) === String(id)) {
+        fetchApplicationDetail(true);
+      }
+    };
+    window.addEventListener('erms:application.update', handleWindowEvent);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchApplicationDetail(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('erms:application.update', handleWindowEvent);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [id, subscribe, fetchApplicationDetail]);
+
+  // Automatically mark unread notification for this application as read when viewed
+  const markedNotificationIdsRef = useRef(new Set());
+  useEffect(() => {
+    if (recentNotifications && recentNotifications.length > 0) {
+      recentNotifications.forEach((notif) => {
+        if (
+          !notif.is_read &&
+          notif.source_type === 'application' &&
+          String(notif.source_id) === String(id) &&
+          !markedNotificationIdsRef.current.has(notif.id)
+        ) {
+          markedNotificationIdsRef.current.add(notif.id);
+          markAsRead(notif.id);
+        }
+      });
+    }
+  }, [id, recentNotifications, markAsRead]);
 
   const handleWithdraw = async () => {
     setWithdrawing(true);
@@ -124,12 +183,36 @@ export default function CandidateApplicationDetailPage() {
 
   if (!application) return null;
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, currentStage) => {
+    const stage = currentStage || application?.current_stage;
+    const stageName = stage?.name || '';
+    const stageType = stage?.type || '';
+
+    // If stage is screening or reviewing in screening stage, display as SCREENING
+    if (
+      status === 'screening' ||
+      stageType === 'screening' ||
+      stageName.toLowerCase() === 'screening' ||
+      (status === 'reviewing' && (!stageName || stageName.toLowerCase() === 'screening'))
+    ) {
+      return (
+        <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+          SCREENING
+        </span>
+      );
+    }
+    if (status === 'reviewing' && stageName) {
+      return (
+        <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+          {stageName.toUpperCase()}
+        </span>
+      );
+    }
     switch (status) {
       case 'applied':
         return <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-[#0058be] border border-blue-200">APPLIED</span>;
       case 'reviewing':
-        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">IN REVIEW</span>;
+        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">SCREENING</span>;
       case 'shortlisted':
         return <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">SHORTLISTED</span>;
       case 'interview_scheduled':
@@ -143,7 +226,7 @@ export default function CandidateApplicationDetailPage() {
       case 'withdrawn':
         return <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-[#71787e] border border-slate-200">WITHDRAWN</span>;
       default:
-        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-[#71787e]">{status?.toUpperCase()}</span>;
+        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-[#71787e]">{stageName ? stageName.toUpperCase() : status?.toUpperCase()}</span>;
     }
   };
 
@@ -183,7 +266,7 @@ export default function CandidateApplicationDetailPage() {
                   <h1 className="text-2xl font-black text-[#191c1e] tracking-tight">
                     {application.job_title}
                   </h1>
-                  {getStatusBadge(application.application_status)}
+                  {getStatusBadge(application.application_status, application.current_stage)}
                 </div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-[#71787e]">
                   <span className="font-semibold text-[#191c1e]">{application.company_name}</span>

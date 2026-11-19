@@ -223,3 +223,44 @@ def test_admin_broadcast_api(api, admin_user, candidate_user):
     assert "metrics" in res_list.data
     assert res_list.data["metrics"]["total_sent_today"] >= 1
     assert len(res_list.data["results"]) >= 1
+
+
+@pytest.mark.asyncio
+async def test_notification_consumer_handlers():
+    from apps.notifications.consumers import NotificationConsumer
+    consumer = NotificationConsumer()
+    sent_messages = []
+
+    async def mock_send_json(msg):
+        sent_messages.append(msg)
+
+    consumer.send_json = mock_send_json
+
+    # Test notification_alert
+    await consumer.notification_alert({"data": {"id": 1, "title": "Test"}, "unread_count": 2})
+    assert len(sent_messages) == 1
+    assert sent_messages[0]["type"] == "notification.alert"
+    assert sent_messages[0]["unread_count"] == 2
+
+    # Test notifcation_alert alias
+    await consumer.notifcation_alert({"data": {"id": 2, "title": "Alias Test"}, "unread_count": 1})
+    assert len(sent_messages) == 2
+    assert sent_messages[1]["type"] == "notification.alert"
+
+    # Test unread_count_update
+    await consumer.unread_count_update({"unread_count": 0, "notification_id": 1})
+    assert len(sent_messages) == 3
+    assert sent_messages[2]["type"] == "unread_count.update"
+    assert sent_messages[2]["unread_count"] == 0
+    assert sent_messages[2]["notification_id"] == 1
+
+    # Test application_update
+    await consumer.application_update({"data": {"application_id": 10, "application_status": "reviewing"}})
+    assert len(sent_messages) == 4
+    assert sent_messages[3]["type"] == "application.update"
+
+    # Test broadcast_alert
+    await consumer.broadcast_alert({"data": {"id": 5, "title": "Notice"}})
+    assert len(sent_messages) == 5
+    assert sent_messages[4]["type"] == "broadcast.alert"
+
