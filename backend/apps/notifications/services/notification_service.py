@@ -24,7 +24,7 @@ def _get_unread_count(user):
     return Notification.objects.filter(user=user, is_read=False).count()
 
 
-def _push_ws_notification(user, notification):
+def _push_ws_notification(user, notification, extra=None):
     """Pushes notification payload to user's WebSocket channel group."""
     try:
         channel_layer = get_channel_layer()
@@ -32,6 +32,8 @@ def _push_ws_notification(user, notification):
             return
         unread_count = _get_unread_count(user)
         serialized_data = NotificationSerializer(notification).data
+        if extra:
+            serialized_data["extra"] = extra
         async_to_sync(channel_layer.group_send)(
             f"user_{user.id}",
             {
@@ -44,7 +46,7 @@ def _push_ws_notification(user, notification):
         pass
 
 
-def notify(user, notification_type, title, message, redirect_url=None, source_type="", source_id=None):
+def notify(user, notification_type, title, message, redirect_url=None, source_type="", source_id=None, extra=None):
     """Creates a notification and dispatches via WebSocket after transaction commits."""
     safe_url = _sanitize_redirect_url(redirect_url)
     notification = Notification.objects.create(
@@ -59,7 +61,7 @@ def notify(user, notification_type, title, message, redirect_url=None, source_ty
         delivered_at=timezone.now(),
     )
 
-    transaction.on_commit(lambda: _push_ws_notification(user, notification))
+    transaction.on_commit(lambda: _push_ws_notification(user, notification, extra=extra))
     return notification
 
 
@@ -110,16 +112,21 @@ def broadcast(title, message, audience="all", created_by=None, notification_type
     """Admin broadcast creation: saves Broadcast record and bulk notifies recipients."""
     safe_url = _sanitize_redirect_url(redirect_url)
     
-    # 1. Filter target audience
+    # 1. Filter target audience: strictly candidates and recruiters (never super_admins)
     if audience == BroadcastAudience.CANDIDATES:
         recipients = list(User.objects.filter(is_active=True, role=Role.CANDIDATE))
-        ws_group = "broadcast_candidates"
     elif audience == BroadcastAudience.RECRUITERS:
         recipients = list(User.objects.filter(is_active=True, role=Role.RECRUITER))
-        ws_group = "broadcast_recruiters"
     else:
-        recipients = list(User.objects.filter(is_active=True))
-        ws_group = "broadcast_all"
+        # Target candidates and recruiters across the platform
+        recipients = list(User.objects.filter(is_active=True, role__in=[Role.CANDIDATE, Role.RECRUITER]))
+
+    # Exclude the sender/creator and any super admin from receiving the broadcast as a personal notification
+    created_by_id = getattr(created_by, "id", None)
+    recipients = [
+        u for u in recipients 
+        if (created_by_id is None or u.id != created_by_id) and u.role != Role.SUPER_ADMIN
+    ]
 
     # 2. Create Broadcast log
     broadcast_log = Broadcast.objects.create(
@@ -147,29 +154,27 @@ def broadcast(title, message, audience="all", created_by=None, notification_type
         )
         for user in recipients
     ]
-    Notification.objects.bulk_create(notifications)
+    created = Notification.objects.bulk_create(notifications)
 
-    # 4. Dispatch WebSocket event to broadcast channel
+    # 4. Dispatch WebSocket events to each recipient and admin channels
     def dispatch_broadcast():
         try:
             channel_layer = get_channel_layer()
-            if channel_layer:
-                sample_data = {
-                    "source_type": "broadcast",
-                    "source_id": broadcast_log.id,
-                    "notification_type": notification_type,
-                    "title": title,
-                    "message": message,
-                    "redirect_url": safe_url,
-                    "created_at": now.isoformat(),
-                }
-                async_to_sync(channel_layer.group_send)(
-                    ws_group,
-                    {
-                        "type": "notification.alert",
-                        "data": sample_data,
-                    },
-                )
+            if not channel_layer:
+                return
+
+            for item in created:
+                _push_ws_notification(item.user, item)
+
+            from apps.notifications.serializers import BroadcastSerializer
+            broadcast_data = BroadcastSerializer(broadcast_log).data
+            async_to_sync(channel_layer.group_send)(
+                "broadcast_admins",
+                {
+                    "type": "broadcast.alert",
+                    "data": broadcast_data,
+                },
+            )
         except Exception:
             pass
 
@@ -183,6 +188,19 @@ def mark_as_read(notification_id, user):
         is_read=True, read_at=timezone.now()
     )
     unread_count = _get_unread_count(user)
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            async_to_sync(channel_layer.group_send)(
+                f"user_{user.id}",
+                {
+                    "type": "unread_count.update",
+                    "unread_count": unread_count,
+                    "notification_id": notification_id,
+                },
+            )
+    except Exception:
+        pass
     return unread_count
 
 
@@ -191,4 +209,16 @@ def mark_all_as_read(user):
     Notification.objects.filter(user=user, is_read=False).update(
         is_read=True, read_at=timezone.now()
     )
+    try:
+        channel_layer = get_channel_layer()
+        if channel_layer:
+            async_to_sync(channel_layer.group_send)(
+                f"user_{user.id}",
+                {
+                    "type": "unread_count.update",
+                    "unread_count": 0,
+                },
+            )
+    except Exception:
+        pass
     return 0

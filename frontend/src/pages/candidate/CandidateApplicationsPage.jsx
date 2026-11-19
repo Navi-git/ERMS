@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Briefcase,
@@ -17,10 +17,12 @@ import {
 } from 'lucide-react';
 import CandidateLayout from '../../layouts/CandidateLayout';
 import applicationApi from '../../api/applicationApi';
+import { useNotifications } from '../../context/NotificationContext';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
 
 export default function CandidateApplicationsPage() {
   const navigate = useNavigate();
+  const { subscribe } = useNotifications();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -29,19 +31,15 @@ export default function CandidateApplicationsPage() {
   const filterTabs = [
     { key: 'all', label: 'All Applications' },
     { key: 'applied', label: 'Applied' },
-    { key: 'reviewing', label: 'In Review' },
+    { key: 'reviewing', label: 'Screening / In Review' },
     { key: 'shortlisted', label: 'Shortlisted' },
     { key: 'interview', label: 'Interview' },
     { key: 'offer_sent', label: 'Offers' },
     { key: 'rejected', label: 'Rejected' },
   ];
 
-  useEffect(() => {
-    fetchApplications();
-  }, [statusFilter, searchQuery]);
-
-  const fetchApplications = async () => {
-    setLoading(true);
+  const fetchApplications = useCallback(async (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     try {
       const params = {};
       if (statusFilter && statusFilter !== 'all') {
@@ -51,15 +49,106 @@ export default function CandidateApplicationsPage() {
         params.search = searchQuery.trim();
       }
       const res = await applicationApi.getCandidateApplications(params);
-      setApplications(res.data);
+      setApplications(res.data || []);
     } catch {
       // Ignore background load error
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
-  };
+  }, [statusFilter, searchQuery]);
 
-  const getStatusBadge = (status) => {
+  useEffect(() => {
+    fetchApplications(false);
+  }, [fetchApplications]);
+
+  // Real-time automatic status updates via WebSocket & page visibility
+  useEffect(() => {
+    const handleUpdate = (payload) => {
+      if (payload?.type === 'application.update' && payload?.data?.application_id) {
+        setApplications((prev) =>
+          prev.map((app) => {
+            if (app.id === payload.data.application_id) {
+              return {
+                ...app,
+                application_status: payload.data.application_status || app.application_status,
+                current_stage: payload.data.current_stage || app.current_stage,
+              };
+            }
+            return app;
+          })
+        );
+        fetchApplications(true);
+      } else if (
+        payload?.type === 'notification.alert' &&
+        payload?.data?.source_type === 'application'
+      ) {
+        const appId = payload.data.source_id;
+        if (payload.data.extra) {
+          setApplications((prev) =>
+            prev.map((app) => {
+              if (app.id === appId) {
+                return {
+                  ...app,
+                  application_status: payload.data.extra.application_status || app.application_status,
+                  current_stage: payload.data.extra.current_stage || app.current_stage,
+                };
+              }
+              return app;
+            })
+          );
+        }
+        fetchApplications(true);
+      }
+    };
+
+    const unsubscribe = subscribe ? subscribe(handleUpdate) : () => {};
+
+    const handleWindowEvent = (e) => {
+      if (e.detail) {
+        handleUpdate({ type: 'application.update', data: e.detail });
+      }
+    };
+    window.addEventListener('erms:application.update', handleWindowEvent);
+
+    // Refresh seamlessly when switching back to portal
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchApplications(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('erms:application.update', handleWindowEvent);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [subscribe, fetchApplications]);
+
+  const getStatusBadge = (status, currentStage) => {
+    const stageName = currentStage?.name || '';
+    const stageType = currentStage?.type || '';
+
+    // If stage is screening or reviewing in screening stage, display as SCREENING
+    if (
+      status === 'screening' ||
+      stageType === 'screening' ||
+      stageName.toLowerCase() === 'screening' ||
+      (status === 'reviewing' && (!stageName || stageName.toLowerCase() === 'screening'))
+    ) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+          SCREENING
+        </span>
+      );
+    }
+    if (status === 'reviewing' && stageName) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+          {stageName.toUpperCase()}
+        </span>
+      );
+    }
     switch (status) {
       case 'applied':
         return (
@@ -70,7 +159,7 @@ export default function CandidateApplicationsPage() {
       case 'reviewing':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
-            IN REVIEW
+            SCREENING
           </span>
         );
       case 'shortlisted':
@@ -112,7 +201,7 @@ export default function CandidateApplicationsPage() {
       default:
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-[#71787e]">
-            {status?.toUpperCase()}
+            {stageName ? stageName.toUpperCase() : status?.toUpperCase()}
           </span>
         );
     }
@@ -272,7 +361,7 @@ export default function CandidateApplicationsPage() {
                       {/* Status */}
                       <td className="py-4 px-5 whitespace-nowrap">
                         <div className="space-y-1">
-                          {getStatusBadge(app.application_status)}
+                          {getStatusBadge(app.application_status, app.current_stage)}
                           {app.current_stage && (
                             <p className="text-[10px] text-[#71787e]">
                               Stage: <span className="font-semibold">{app.current_stage.name}</span>

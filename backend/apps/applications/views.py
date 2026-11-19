@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from shared.exceptions.api import ApiError
 from shared.constants.roles import Role
-from apps.jobs.models import Job
+from apps.jobs.models import Job, StageType
 from apps.companies.models import Company
 from apps.candidates.models import CandidateProfile
 from apps.applications.models import (
@@ -106,6 +106,11 @@ class CandidateApplicationListView(APIView):
         if status_filter and status_filter != "all":
             if status_filter == "interview":
                 qs = qs.filter(application_status=ApplicationStatus.INTERVIEW_SCHEDULED)
+            elif status_filter in ("screening", "reviewing"):
+                qs = qs.filter(
+                    models.Q(application_status=ApplicationStatus.REVIEWING)
+                    | models.Q(stage_progresses__completed_at__isnull=True, stage_progresses__job_stage__stage_type=StageType.SCREENING)
+                ).distinct()
             else:
                 qs = qs.filter(application_status=status_filter)
 
@@ -248,6 +253,11 @@ class RecruiterApplicationListView(APIView):
         if status_filter and status_filter != "all":
             if status_filter == "interview":
                 qs = qs.filter(application_status=ApplicationStatus.INTERVIEW_SCHEDULED)
+            elif status_filter in ("screening", "reviewing"):
+                qs = qs.filter(
+                    models.Q(application_status=ApplicationStatus.REVIEWING)
+                    | models.Q(stage_progresses__completed_at__isnull=True, stage_progresses__job_stage__stage_type=StageType.SCREENING)
+                ).distinct()
             else:
                 qs = qs.filter(application_status=status_filter)
 
