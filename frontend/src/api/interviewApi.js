@@ -11,6 +11,7 @@ export const interviewApi = {
   markOutcome: (id, data) => axiosClient.post(`/recruiter/interviews/${id}/outcome/`, data),
   getScorecard: (id) => axiosClient.get(`/recruiter/interviews/${id}/scorecard/`),
   submitScorecard: (id, data) => axiosClient.post(`/recruiter/interviews/${id}/scorecard/`, data),
+  updateScorecard: (id, data) => axiosClient.patch(`/recruiter/interviews/${id}/scorecard/`, data),
   nudgePanelist: (participantId) => axiosClient.post(`/recruiter/interviews/participants/${participantId}/nudge/`),
 
   // Candidate Endpoints

@@ -437,6 +437,89 @@ class InterviewService:
         return feedback
 
     @classmethod
+    @transaction.atomic
+    def update_scorecard(
+        cls,
+        recruiter_user,
+        interview_id: int,
+        recommendation: str = None,
+        overall_score: float = None,
+        rating: int = None,
+        technical_score: int = None,
+        communication_score: int = None,
+        comments: str = None,
+        growth_areas: str = None,
+        internal_notes: str = None,
+        on_behalf_of_participant_id: int = None,
+        criteria_ratings: list = None,
+    ) -> InterviewFeedback:
+        """Updates an existing evaluation scorecard and criteria ratings."""
+        try:
+            interview = Interview.objects.get(id=interview_id)
+        except Interview.DoesNotExist:
+            raise ApiError(code="interview_not_found", message="Interview not found.", status_code=404)
+
+        feedback = interview.feedbacks.first()
+        if not feedback:
+            raise ApiError(code="feedback_not_found", message="No submitted scorecard found to update.", status_code=404)
+
+        if recommendation:
+            feedback.recommendation = recommendation
+        if comments is not None:
+            feedback.comments = comments.strip() or None
+        if growth_areas is not None:
+            feedback.growth_areas = growth_areas.strip() or None
+        if internal_notes is not None:
+            feedback.internal_notes = internal_notes.strip() or None
+        if rating is not None:
+            feedback.rating = rating
+        if technical_score is not None:
+            feedback.technical_score = technical_score
+        if communication_score is not None:
+            feedback.communication_score = communication_score
+
+        if on_behalf_of_participant_id:
+            on_behalf_participant = InterviewParticipant.objects.filter(
+                id=on_behalf_of_participant_id, interview=interview
+            ).first()
+            if on_behalf_participant:
+                feedback.on_behalf_of_participant = on_behalf_participant
+
+        if criteria_ratings is not None:
+            calc_overall = overall_score
+            valid_scores = [c.get("score") for c in criteria_ratings if c.get("score") is not None]
+            if valid_scores and calc_overall is None:
+                calc_overall = round(sum(valid_scores) / len(valid_scores), 1)
+            feedback.overall_score = calc_overall
+            feedback.rating = int(round(calc_overall)) if calc_overall else feedback.rating
+
+            feedback.criteria_ratings.all().delete()
+            for idx, item in enumerate(criteria_ratings):
+                InterviewFeedbackCriteria.objects.create(
+                    feedback=feedback,
+                    criterion_key=item.get("criterion_key", f"crit_{idx}"),
+                    criterion_label=item.get("criterion_label", f"Criterion {idx+1}"),
+                    criterion_description=item.get("criterion_description", ""),
+                    benchmark_level=item.get("benchmark_level", ""),
+                    score=int(item.get("score", 3)),
+                    max_score=int(item.get("max_score", 5)),
+                    display_order=idx,
+                )
+
+        feedback.updated_at = timezone.now()
+        feedback.save()
+
+        AuditLog.objects.create(
+            actor=recruiter_user,
+            actor_type="recruiter",
+            action="interview.scorecard_updated",
+            entity_type="interview_feedback",
+            entity_id=feedback.id,
+            details={"interview_id": interview.id, "recommendation": feedback.recommendation},
+        )
+        return feedback
+
+    @classmethod
     def nudge_panelist(cls, recruiter_user, participant_id: int) -> InterviewParticipant:
         """Sends a nudge reminder to a panelist who has not submitted feedback."""
         try:

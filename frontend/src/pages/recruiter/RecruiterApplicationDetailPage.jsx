@@ -68,11 +68,8 @@ export default function RecruiterApplicationDetailPage() {
 
   const fetchAppInterviews = async () => {
     try {
-      const res = await interviewApi.getRecruiterInterviews();
-      const matched = (res.data?.interviews || []).filter(
-        (i) => i.application_id === Number(id)
-      );
-      setAppInterviews(matched);
+      const res = await interviewApi.getRecruiterInterviews({ application_id: id });
+      setAppInterviews(res.data?.interviews || []);
     } catch {
       // Non-fatal
     }
@@ -828,6 +825,17 @@ export default function RecruiterApplicationDetailPage() {
                                     <p className="text-amber-900 leading-relaxed">{fb.internal_notes}</p>
                                   </div>
                                 )}
+
+                                <div className="pt-2 flex items-center justify-end border-t border-gray-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate(`/recruiter/interviews/${inv.id}/scorecard`)}
+                                    className="text-xs font-bold text-[#0058be] hover:underline flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <span>Open Full Scorecard</span>
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             ))}
                           </div>

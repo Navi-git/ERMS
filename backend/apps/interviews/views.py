@@ -74,6 +74,10 @@ class RecruiterInterviewListView(APIView):
         if job_id:
             queryset = queryset.filter(job_id=job_id)
 
+        application_id = request.query_params.get("application_id")
+        if application_id:
+            queryset = queryset.filter(application_id=application_id)
+
         status_param = request.query_params.get("status")
         if status_param:
             if status_param == "feedback_pending":
@@ -301,6 +305,36 @@ class RecruiterScorecardView(APIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+    def patch(self, request, pk):
+        serializer = SubmitScorecardSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        feedback = InterviewService.update_scorecard(
+            recruiter_user=request.user,
+            interview_id=pk,
+            recommendation=data.get("recommendation"),
+            overall_score=data.get("overall_score"),
+            rating=data.get("rating"),
+            technical_score=data.get("technical_score"),
+            communication_score=data.get("communication_score"),
+            comments=data.get("comments"),
+            growth_areas=data.get("growth_areas"),
+            internal_notes=data.get("internal_notes"),
+            on_behalf_of_participant_id=data.get("on_behalf_of_participant_id"),
+            criteria_ratings=data.get("criteria_ratings"),
+        )
+        return Response(
+            {
+                "message": "Scorecard updated successfully.",
+                "feedback": InterviewFeedbackSerializer(feedback).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    def put(self, request, pk):
+        return self.patch(request, pk)
 
 
 class RecruiterNudgePanelView(APIView):

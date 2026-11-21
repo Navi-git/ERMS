@@ -497,18 +497,25 @@ export default function RecruiterInterviewsDashboardPage() {
                               </a>
                             )}
 
-                            {/* Scorecard action if pending or completed */}
-                            {(interview.display_status === 'feedback_pending' || interview.interview_status === 'completed') && (
+                            {/* Scorecard action if pending, completed, or submitted */}
+                            {(interview.display_status === 'feedback_pending' || interview.interview_status === 'completed' || interview.feedback_submitted) && (
                               <button
                                 type="button"
                                 onClick={() => navigate(`/recruiter/interviews/${interview.id}/scorecard`)}
-                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors cursor-pointer flex items-center gap-1 ${
                                   interview.feedback_submitted
-                                    ? 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                                    ? 'bg-blue-50 hover:bg-blue-100 text-[#0058be] border border-blue-200'
                                     : 'bg-amber-500 hover:bg-amber-600 text-white'
                                 }`}
                               >
-                                {interview.feedback_submitted ? 'View Scorecard' : 'Nudge Scorecard'}
+                                {interview.feedback_submitted ? (
+                                  <>
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>View Scorecard</span>
+                                  </>
+                                ) : (
+                                  <span>Fill Scorecard</span>
+                                )}
                               </button>
                             )}
 
@@ -702,14 +709,18 @@ export default function RecruiterInterviewsDashboardPage() {
                           <p className="text-[11px] text-gray-500 truncate">{inv.job?.title}</p>
                         </div>
 
-                        <div className="pt-1 flex items-center justify-between border-t border-gray-100 text-[11px]">
-                          <span className="text-gray-400">Scorecard Filed</span>
+                        <div className="pt-2 flex items-center justify-between border-t border-gray-100 text-[11px]">
+                          <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            Scorecard Filed
+                          </span>
                           <button
                             type="button"
                             onClick={() => navigate(`/recruiter/interviews/${inv.id}/scorecard`)}
-                            className="text-[#0058be] font-bold hover:underline cursor-pointer"
+                            className="px-2 py-1 rounded-md text-[11px] font-bold bg-blue-50 text-[#0058be] hover:bg-blue-100 transition-colors cursor-pointer flex items-center gap-1"
                           >
-                            View
+                            <Eye className="w-3 h-3" />
+                            <span>View Scorecard</span>
                           </button>
                         </div>
                       </div>

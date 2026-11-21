@@ -342,3 +342,56 @@ class TestInterviewModule:
         res_list = client.get("/api/v1/recruiter/interviews/")
         assert res_list.status_code == 200
         assert "interviews" in res_list.data
+
+    def test_update_scorecard_and_application_filter(self, recruiter_user, application):
+        now = timezone.now()
+        interview, _ = InterviewService.schedule_interview(
+            recruiter_user=recruiter_user,
+            application_id=application.id,
+            interview_type=InterviewType.BEHAVIORAL,
+            scheduled_at=now - timedelta(hours=1),
+            duration_minutes=45,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=recruiter_user)
+
+        # 1. Filter interviews by application_id
+        res_filter = client.get(f"/api/v1/recruiter/interviews/?application_id={application.id}")
+        assert res_filter.status_code == 200
+        assert any(i["id"] == interview.id for i in res_filter.data["interviews"])
+
+        # 2. Submit initial scorecard
+        criteria = [
+            {"criterion_key": "comm", "criterion_label": "Communication", "score": 3},
+            {"criterion_key": "lead", "criterion_label": "Leadership", "score": 3},
+        ]
+        res_submit = client.post(
+            f"/api/v1/recruiter/interviews/{interview.id}/scorecard/",
+            {
+                "recommendation": Recommendation.NEUTRAL,
+                "comments": "Average communication.",
+                "criteria_ratings": criteria,
+            },
+            format="json",
+        )
+        assert res_submit.status_code == 201
+        assert res_submit.data["feedback"]["recommendation"] == Recommendation.NEUTRAL
+
+        # 3. Update existing scorecard via PATCH
+        res_patch = client.patch(
+            f"/api/v1/recruiter/interviews/{interview.id}/scorecard/",
+            {
+                "recommendation": Recommendation.YES,
+                "comments": "Revised: Excellent communicator after team debrief.",
+                "criteria_ratings": [
+                    {"criterion_key": "comm", "criterion_label": "Communication", "score": 5},
+                    {"criterion_key": "lead", "criterion_label": "Leadership", "score": 4},
+                ],
+            },
+            format="json",
+        )
+        assert res_patch.status_code == 200
+        assert res_patch.data["feedback"]["recommendation"] == Recommendation.YES
+        assert res_patch.data["feedback"]["overall_score"] == 4.5
+        assert "Revised" in res_patch.data["feedback"]["comments"]
