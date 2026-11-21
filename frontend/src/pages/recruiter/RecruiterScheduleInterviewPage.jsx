@@ -47,6 +47,7 @@ export default function RecruiterScheduleInterviewPage() {
 
   // Attendees State
   const [attendees, setAttendees] = useState([]);
+  const [selectedStageId, setSelectedStageId] = useState('');
   const [showAddExternal, setShowAddExternal] = useState(false);
   const [externalName, setExternalName] = useState('');
   const [externalEmail, setExternalEmail] = useState('');
@@ -65,6 +66,15 @@ export default function RecruiterScheduleInterviewPage() {
       setLoading(true);
       const res = await applicationApi.getRecruiterApplicationDetail(id);
       setApplication(res.data);
+
+      const defaultStage =
+        res.data?.stages?.find((s) => s.type === 'interview' && s.is_current) ||
+        res.data?.stages?.find((s) => s.type === 'interview') ||
+        res.data?.current_stage;
+      if (defaultStage) {
+        setSelectedStageId(String(defaultStage.id));
+      }
+
       // Pre-populate invitation note template
       const candName = res.data?.candidate?.full_name || 'Candidate';
       setInvitationNote(
@@ -147,7 +157,7 @@ export default function RecruiterScheduleInterviewPage() {
         meeting_link: formatLocation.includes('Video') ? meetingLink.trim() : null,
         location: formatLocation.includes('Video') ? formatLocation : (locationAddress.trim() || formatLocation),
         invitation_note: invitationNote.trim(),
-        job_stage_id: application?.current_stage?.id || null,
+        job_stage_id: selectedStageId ? Number(selectedStageId) : (application?.current_stage?.id || null),
         participants: participantsPayload,
       };
 
@@ -233,7 +243,7 @@ export default function RecruiterScheduleInterviewPage() {
                 <h2 className="text-base font-bold text-gray-900">Interview Details</h2>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Interview Type */}
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1.5">Interview Type</label>
@@ -249,6 +259,29 @@ export default function RecruiterScheduleInterviewPage() {
                     <option value="final">Final Round</option>
                     <option value="on_site">On-Site Visit</option>
                     <option value="hr">HR Screening</option>
+                  </select>
+                </div>
+
+                {/* Target Stage Round */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">Hiring Stage Round</label>
+                  <select
+                    value={selectedStageId}
+                    onChange={(e) => setSelectedStageId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-xs font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#0058be]/20 focus:border-[#0058be] bg-white cursor-pointer"
+                  >
+                    {application?.stages
+                      ?.filter((s) => s.type === 'interview' || s.id === application?.current_stage?.id)
+                      ?.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.status?.replace('_', ' ') || 'Stage'})
+                        </option>
+                      ))}
+                    {!application?.stages?.some((s) => s.type === 'interview') && (
+                      <option value={application?.current_stage?.id || ''}>
+                        {application?.current_stage?.name || 'Interview Round'}
+                      </option>
+                    )}
                   </select>
                 </div>
 

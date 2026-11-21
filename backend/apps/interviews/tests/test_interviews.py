@@ -417,3 +417,56 @@ class TestInterviewModule:
         inv_data = next((i for i in res.data["interviews"] if i["id"] == past_interview.id), None)
         assert inv_data is not None
         assert inv_data["has_ended"] is True
+
+    def test_schedule_interview_after_moving_back_from_offer_stage(self, recruiter_user, application, job_stage):
+        from apps.applications.services.transition_service import ApplicationTransitionService
+
+        # 1. Create Offer Stage
+        offer_stage = JobStage.objects.create(
+            job=application.job,
+            name="Formal Offer",
+            stage_type=StageType.OFFER,
+            stage_order=4,
+        )
+
+        # 2. Advance to Offer Stage
+        ApplicationTransitionService.move_stage(
+            application=application,
+            target_stage_id=offer_stage.id,
+            changed_by=recruiter_user,
+        )
+        application.refresh_from_db()
+        assert application.application_status == ApplicationStatus.OFFER_SENT
+
+        # 3. Move back from Offer Stage to Interview Stage
+        ApplicationTransitionService.move_stage(
+            application=application,
+            target_stage_id=job_stage.id,
+            changed_by=recruiter_user,
+        )
+        application.refresh_from_db()
+        assert application.application_status == ApplicationStatus.INTERVIEW_SCHEDULED
+        # There are now multiple progress records for this job_stage in history
+        assert application.stage_progresses.filter(job_stage=job_stage).count() >= 2
+
+        # 4. Schedule interview via API client
+        client = APIClient()
+        client.force_authenticate(user=recruiter_user)
+        now = timezone.now()
+
+        res = client.post(
+            "/api/v1/recruiter/interviews/schedule/",
+            {
+                "application_id": application.id,
+                "job_stage_id": job_stage.id,
+                "interview_type": InterviewType.TECHNICAL,
+                "scheduled_at": (now + timedelta(days=2)).isoformat(),
+                "duration_minutes": 60,
+                "location": "Google Meet Video",
+                "meeting_link": "https://meet.google.com/test-loop",
+            },
+            format="json",
+        )
+        assert res.status_code == 201
+        assert res.data["message"] == "Interview scheduled successfully."
+        assert res.data["interview"]["interview_status"] == "scheduled"

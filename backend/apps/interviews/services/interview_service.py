@@ -86,6 +86,12 @@ class InterviewService:
         if job_stage_id:
             job_stage = JobStage.objects.filter(id=job_stage_id, job=application.job).first()
 
+        # If job_stage is not an interview stage or was omitted, resolve to job's interview stage
+        if not job_stage or getattr(job_stage, "stage_type", None) != "interview":
+            interview_stage = JobStage.objects.filter(job=application.job, stage_type="interview").order_by("stage_order").first()
+            if interview_stage:
+                job_stage = interview_stage
+
         # Create Interview record
         interview = Interview.objects.create(
             application=application,
@@ -155,18 +161,39 @@ class InterviewService:
                     )
 
         # Update application status to interview_scheduled
+        status_updates = []
         if application.application_status != ApplicationStatus.INTERVIEW_SCHEDULED:
             application.application_status = ApplicationStatus.INTERVIEW_SCHEDULED
+            status_updates.append("application_status")
+        if application.offer_extended_at:
+            application.offer_extended_at = None
+            status_updates.append("offer_extended_at")
+        if status_updates:
             application.updated_at = timezone.now()
-            application.save(update_fields=["application_status", "updated_at"])
+            status_updates.append("updated_at")
+            application.save(update_fields=status_updates)
 
-        # Update or record stage progress
+        # Update or record stage progress safely (handles re-entering stage without get_or_create MultipleObjectsReturned)
         if job_stage:
-            ApplicationStageProgress.objects.get_or_create(
+            active_prog = ApplicationStageProgress.objects.filter(
                 application=application,
                 job_stage=job_stage,
-                defaults={"started_at": timezone.now(), "changed_by": recruiter_user},
-            )
+                completed_at__isnull=True,
+            ).first()
+            if not active_prog:
+                # Close any other open stage progress (e.g. if application was in offer stage)
+                ApplicationStageProgress.objects.filter(
+                    application=application,
+                    completed_at__isnull=True,
+                ).update(completed_at=timezone.now())
+
+                ApplicationStageProgress.objects.create(
+                    application=application,
+                    job_stage=job_stage,
+                    started_at=timezone.now(),
+                    changed_by=recruiter_user,
+                    notes=f"Interview scheduled: {interview.get_interview_type_display()}.",
+                )
 
         # Audit log
         AuditLog.objects.create(
