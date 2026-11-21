@@ -22,6 +22,7 @@ import {
   RotateCcw,
   XCircle,
   Sparkles,
+  Eye,
 } from 'lucide-react';
 import RecruiterLayout from '../../layouts/RecruiterLayout';
 import interviewApi from '../../api/interviewApi';
@@ -61,15 +62,6 @@ export default function RecruiterInterviewsDashboardPage() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [outcomeModalOpen, setOutcomeModalOpen] = useState(false);
 
-  useEffect(() => {
-    fetchMetrics();
-    fetchJobs();
-  }, []);
-
-  useEffect(() => {
-    fetchInterviews();
-  }, [statusFilter, jobFilter, search]);
-
   const fetchMetrics = async () => {
     try {
       const res = await interviewApi.getRecruiterInterviewMetrics();
@@ -98,12 +90,21 @@ export default function RecruiterInterviewsDashboardPage() {
 
       const res = await interviewApi.getRecruiterInterviews(params);
       setInterviews(res.data?.interviews || []);
-    } catch (err) {
+    } catch {
       showToast('Failed to load interviews.', 'error');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchMetrics();
+    fetchJobs();
+  }, []);
+
+  useEffect(() => {
+    fetchInterviews();
+  }, [statusFilter, jobFilter, search]);
 
   const handleNudgeAll = async () => {
     showToast('Scorecard reminder nudges dispatched to overdue panelists.', 'success');

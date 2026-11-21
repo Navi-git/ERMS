@@ -84,11 +84,7 @@ export default function RecruiterScorecardPage() {
   const [growthAreas, setGrowthAreas] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
 
-  useEffect(() => {
-    fetchInterviewDetail();
-  }, [id]);
-
-  const populateFeedbackData = (fb, intData) => {
+  const populateFeedbackData = (fb) => {
     setExistingFeedback(fb);
     setIsSubmitted(true);
     setIsEditMode(false);
@@ -127,7 +123,7 @@ export default function RecruiterScorecardPage() {
 
       const fb = data?.feedbacks && data.feedbacks.length > 0 ? data.feedbacks[0] : null;
       if (fb) {
-        populateFeedbackData(fb, data);
+        populateFeedbackData(fb);
       } else {
         setIsSubmitted(false);
         setIsEditMode(true);
@@ -143,13 +139,17 @@ export default function RecruiterScorecardPage() {
           setSelectedPanelistId(String(ext.id));
         }
       }
-    } catch (err) {
+    } catch {
       showToast('Failed to load interview for evaluation.', 'error');
       navigate('/recruiter/interviews');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchInterviewDetail();
+  }, [id]);
 
   const handleScoreChange = (index, newScore) => {
     const updated = [...competencies];

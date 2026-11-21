@@ -17,7 +17,7 @@ export default class ErrorBoundary extends React.Component {
 
   handleReset = () => {
     this.setState({ hasError: false, error: null });
-    window.location.href = '/candidate/applications';
+    window.location.href = '/dashboard';
   };
 
   handleReload = () => {
@@ -54,7 +54,7 @@ export default class ErrorBoundary extends React.Component {
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0058be] text-white text-xs font-bold hover:bg-[#004ca5] transition-colors cursor-pointer"
               >
                 <Home className="w-3.5 h-3.5" />
-                <span>Go to Applications</span>
+                <span>Go to Dashboard</span>
               </button>
             </div>
           </div>
