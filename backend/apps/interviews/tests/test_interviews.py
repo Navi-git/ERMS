@@ -395,3 +395,25 @@ class TestInterviewModule:
         assert res_patch.data["feedback"]["recommendation"] == Recommendation.YES
         assert res_patch.data["feedback"]["overall_score"] == 4.5
         assert "Revised" in res_patch.data["feedback"]["comments"]
+
+    def test_candidate_interview_has_ended_and_filter(self, candidate_user, recruiter_user, application):
+        now = timezone.now()
+        # Scheduled in the past (2 hours ago, duration 30 mins -> has_ended = True)
+        past_interview, _ = InterviewService.schedule_interview(
+            recruiter_user=recruiter_user,
+            application_id=application.id,
+            interview_type=InterviewType.BEHAVIORAL,
+            scheduled_at=now - timedelta(hours=2),
+            duration_minutes=30,
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=candidate_user)
+
+        res = client.get(f"/api/v1/candidate/interviews/?application_id={application.id}")
+        assert res.status_code == 200
+        assert len(res.data["interviews"]) >= 1
+
+        inv_data = next((i for i in res.data["interviews"] if i["id"] == past_interview.id), None)
+        assert inv_data is not None
+        assert inv_data["has_ended"] is True

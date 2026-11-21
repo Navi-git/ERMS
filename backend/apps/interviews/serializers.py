@@ -204,6 +204,7 @@ class CandidateInterviewSerializer(serializers.ModelSerializer):
     interviewers = serializers.SerializerMethodField()
     my_response_status = serializers.SerializerMethodField()
     display_status = serializers.CharField(read_only=True)
+    has_ended = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Interview
@@ -222,6 +223,7 @@ class CandidateInterviewSerializer(serializers.ModelSerializer):
             "location",
             "interview_status",
             "display_status",
+            "has_ended",
             "invitation_note",
             "cancellation_reason",
             "feedback_submitted",

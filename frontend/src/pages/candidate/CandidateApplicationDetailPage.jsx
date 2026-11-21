@@ -20,6 +20,9 @@ import {
   Loader2,
   AlertCircle,
   Video,
+  Award,
+  ArrowRight,
+  Sparkles,
 } from 'lucide-react';
 import CandidateLayout from '../../layouts/CandidateLayout';
 import applicationApi from '../../api/applicationApi';
@@ -47,6 +50,7 @@ export default function CandidateApplicationDetailPage() {
   const [addingMaterial, setAddingMaterial] = useState(false);
   const [showAddMaterialModal, setShowAddMaterialModal] = useState(false);
   const [activeInterview, setActiveInterview] = useState(null);
+  const [concludedInterview, setConcludedInterview] = useState(null);
 
   const fetchApplicationDetail = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
@@ -56,11 +60,32 @@ export default function CandidateApplicationDetailPage() {
 
       // Fetch matching interview if scheduled or active
       try {
-        const invRes = await interviewApi.getCandidateInterviews();
-        const found = (invRes.data?.interviews || []).find(
+        const invRes = await interviewApi.getCandidateInterviews({ application_id: id });
+        const appInterviews = (invRes.data?.interviews || []).filter(
           (inv) => Number(inv.application_id) === Number(id)
         );
-        setActiveInterview(found || null);
+
+        const now = Date.now();
+        // Check for active upcoming interview:
+        // Must be scheduled, candidate hasn't declined, and scheduled end time is in future
+        const upcoming = appInterviews.find((inv) => {
+          if (inv.interview_status !== 'scheduled') return false;
+          if (inv.my_response_status === 'declined') return false;
+          if (inv.has_ended) return false;
+          const endMs = new Date(inv.scheduled_at).getTime() + (inv.duration_minutes || 60) * 60 * 1000;
+          return endMs > now;
+        });
+
+        // Check for most recent completed or past interview
+        const concluded = appInterviews.find((inv) => {
+          if (inv.interview_status === 'completed') return true;
+          if (inv.has_ended) return true;
+          const endMs = new Date(inv.scheduled_at).getTime() + (inv.duration_minutes || 60) * 60 * 1000;
+          return endMs <= now;
+        });
+
+        setActiveInterview(upcoming || null);
+        setConcludedInterview(concluded || null);
       } catch {
         // Non-fatal
       }
@@ -243,6 +268,34 @@ export default function CandidateApplicationDetailPage() {
     }
   };
 
+  const appStatus = application?.application_status;
+  const isOfferStage = appStatus === 'offer_sent' || application?.current_stage?.type === 'offer';
+  const isHiredStage = appStatus === 'accepted' || application?.current_stage?.type === 'hired';
+  const isPostInterviewStage = isOfferStage || isHiredStage || ['rejected', 'withdrawn'].includes(appStatus);
+
+  // Check if an interview stage is marked as completed in the pipeline stepper
+  const isInterviewStageCompleted = application?.pipeline_stepper?.some(
+    (step) => step.type === 'interview' && step.is_completed && !step.is_current
+  );
+
+  // Active upcoming interview banner should ONLY show when:
+  // 1. Not in a post-interview stage (offer, hired, rejected, withdrawn)
+  // 2. Active upcoming interview exists, is scheduled, and has not ended
+  // 3. Application is still in active interview stage
+  const shouldShowActiveInterviewBanner =
+    !isPostInterviewStage &&
+    !isInterviewStageCompleted &&
+    appStatus === 'interview_scheduled' &&
+    Boolean(activeInterview);
+
+  // Concluded interview notice:
+  // Show when the candidate attended or meeting elapsed, but before recruiter moves to offer/next stage
+  const shouldShowConcludedNotice =
+    !isPostInterviewStage &&
+    !shouldShowActiveInterviewBanner &&
+    appStatus === 'interview_scheduled' &&
+    Boolean(concludedInterview);
+
   return (
     <CandidateLayout>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
@@ -337,8 +390,72 @@ export default function CandidateApplicationDetailPage() {
             </div>
           )}
 
-          {/* Active Focus Card (Figma Screen 1: Interview Banner) */}
-          {(application.application_status === 'interview_scheduled' || activeInterview) && (
+          {/* Offer Extended Banner */}
+          {isOfferStage && (
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-100">
+                  <Award className="w-4 h-4 text-white" />
+                  <span>Offer Stage Reached</span>
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-white/20 text-white">
+                  Active Update
+                </span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Congratulations! You've received an offer</h3>
+                <p className="text-xs text-amber-50 mt-1 max-w-xl leading-relaxed">
+                  The hiring team at <span className="font-semibold text-white">{application.company_name}</span> has extended a formal employment offer for <span className="font-semibold text-white">{application.job_title}</span>. Our recruitment team will be in touch with your formal offer letter and compensation package.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Hired Confirmation Banner */}
+          {isHiredStage && (
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-sm space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-100">
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <span>Hiring Confirmed</span>
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-white/20 text-white">
+                  Completed
+                </span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Welcome to the Team!</h3>
+                <p className="text-xs text-emerald-50 mt-1 max-w-xl leading-relaxed">
+                  Your offer acceptance has been recorded for <span className="font-semibold text-white">{application.job_title}</span> at <span className="font-semibold text-white">{application.company_name}</span>. The talent team will coordinate your upcoming onboarding journey.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Interview Concluded / Under Review Notice */}
+          {shouldShowConcludedNotice && (
+            <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-2 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 uppercase tracking-wider">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>{concludedInterview?.interview_type_display || 'Interview Round'} Concluded</span>
+                </div>
+                <Link
+                  to="/candidate/interviews"
+                  className="text-xs font-bold text-[#0058be] hover:underline flex items-center gap-1"
+                >
+                  <span>Interview Center</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <p className="text-xs text-emerald-900 leading-relaxed">
+                Your interview session has concluded. The hiring team is reviewing evaluation scorecards from the interviewers and calibrating feedback. You will receive an update as soon as the review is complete.
+              </p>
+            </div>
+          )}
+
+          {/* Active Focus Card (Figma Screen 1: Interview Banner - Only when interview is active & upcoming) */}
+          {shouldShowActiveInterviewBanner && (
             <div className="p-6 rounded-2xl bg-[#002a64] text-white space-y-4 shadow-sm animate-in fade-in">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-blue-200">
@@ -402,8 +519,8 @@ export default function CandidateApplicationDetailPage() {
             </div>
           )}
 
-          {/* Recruiter Notes Card (Figma Screen 1) */}
-          {activeInterview?.invitation_note && (
+          {/* Recruiter Notes Card (Figma Screen 1 - Only when interview is active & upcoming) */}
+          {shouldShowActiveInterviewBanner && activeInterview?.invitation_note && (
             <div className="p-5 rounded-2xl bg-white border border-[#e0e3e5] shadow-xs space-y-2">
               <div className="flex items-center justify-between text-xs text-[#71787e]">
                 <span className="font-bold uppercase tracking-wider text-[11px] text-[#191c1e]">

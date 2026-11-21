@@ -372,6 +372,10 @@ class CandidateInterviewListView(APIView):
         )
 
         status_param = request.query_params.get("status")
+        app_id = request.query_params.get("application_id")
+        if app_id:
+            queryset = queryset.filter(application_id=app_id)
+
         if status_param == "upcoming":
             queryset = queryset.filter(
                 interview_status=InterviewStatus.SCHEDULED,

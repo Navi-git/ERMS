@@ -119,6 +119,10 @@ class Interview(models.Model):
     def end_time(self):
         return self.scheduled_at + timezone.timedelta(minutes=self.duration_minutes)
 
+    @property
+    def has_ended(self):
+        return timezone.now() > self.end_time
+
 
 class InterviewParticipant(models.Model):
     """Table 25: interview_participants - Candidates, team members and external panelists."""
