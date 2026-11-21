@@ -14,6 +14,7 @@ import {
   Search,
   Sparkles,
   ChevronDown,
+  CalendarCheck2,
 } from 'lucide-react';
 import authApi from '../api/authApi';
 import { logout } from '../store/slices/authSlice';
@@ -47,6 +48,7 @@ export default function CandidateLayout({ children }) {
     { name: 'My Profile', icon: User, path: '/candidate/profile' },
     { name: 'Resumes & ATS', icon: FileText, path: '/candidate/resumes' },
     { name: 'Applications', icon: Briefcase, path: '/candidate/applications' },
+    { name: 'Interview Center', icon: CalendarCheck2, path: '/candidate/interviews' },
     { name: 'Saved Jobs', icon: Bookmark, path: '/candidate/saved-jobs' },
     { name: 'Notifications', icon: Bell, path: '/candidate/notifications' },
   ];

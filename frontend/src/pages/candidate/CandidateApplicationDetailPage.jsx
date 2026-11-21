@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import CandidateLayout from '../../layouts/CandidateLayout';
 import applicationApi from '../../api/applicationApi';
+import interviewApi from '../../api/interviewApi';
 import { useToast } from '../../context/ToastContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
@@ -45,12 +46,24 @@ export default function CandidateApplicationDetailPage() {
   const [newMaterialType, setNewMaterialType] = useState('portfolio');
   const [addingMaterial, setAddingMaterial] = useState(false);
   const [showAddMaterialModal, setShowAddMaterialModal] = useState(false);
+  const [activeInterview, setActiveInterview] = useState(null);
 
   const fetchApplicationDetail = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
       const res = await applicationApi.getCandidateApplicationDetail(id);
       setApplication(res.data);
+
+      // Fetch matching interview if scheduled or active
+      try {
+        const invRes = await interviewApi.getCandidateInterviews();
+        const found = (invRes.data?.interviews || []).find(
+          (inv) => Number(inv.application_id) === Number(id)
+        );
+        setActiveInterview(found || null);
+      } catch {
+        // Non-fatal
+      }
     } catch (err) {
       if (!isSilent) {
         showToast('Application not found or access denied.', 'error');
@@ -324,8 +337,8 @@ export default function CandidateApplicationDetailPage() {
             </div>
           )}
 
-          {/* Active Focus Card (Figma Page 5: Interview Banner) */}
-          {application.application_status === 'interview_scheduled' && (
+          {/* Active Focus Card (Figma Screen 1: Interview Banner) */}
+          {(application.application_status === 'interview_scheduled' || activeInterview) && (
             <div className="p-6 rounded-2xl bg-[#002a64] text-white space-y-4 shadow-sm animate-in fade-in">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-blue-200">
@@ -333,26 +346,74 @@ export default function CandidateApplicationDetailPage() {
                 </span>
                 <span className="flex items-center gap-1.5 text-xs text-blue-200">
                   <Video className="w-4 h-4" />
-                  Live Meeting
+                  {activeInterview?.location || 'Live Video Meeting'}
                 </span>
               </div>
               <div>
-                <h3 className="text-lg font-bold">Upcoming Interview Round</h3>
-                <p className="text-xs text-blue-100 mt-1 max-w-xl">
-                  Your interview has been scheduled with the engineering panel. Review your portfolio projects and technical architecture case studies.
+                <h3 className="text-lg font-bold">
+                  {activeInterview?.interview_type_display || 'Technical Interview'}
+                </h3>
+                <p className="text-xs text-blue-100 mt-1 max-w-xl leading-relaxed">
+                  {activeInterview?.invitation_note ||
+                    'Deep dive into portfolio case studies, technical architecture, and system design process.'}
                 </p>
               </div>
-              <div className="pt-2 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() =>
-                    showToast('Virtual meeting room will open 10 minutes prior to call time in the Interview module.', 'info')
-                  }
-                  className="px-5 py-2.5 rounded-xl bg-white text-[#0058be] font-bold text-xs hover:bg-blue-50 transition-colors shadow-xs cursor-pointer"
-                >
-                  Join Call (Upcoming)
-                </button>
+
+              <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-blue-900/60 pt-4">
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300 block">
+                    Scheduled Time
+                  </span>
+                  <span className="text-sm font-black text-white">
+                    {activeInterview?.scheduled_at
+                      ? `${new Date(activeInterview.scheduled_at).toLocaleDateString('en-US', {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        })} at ${new Date(activeInterview.scheduled_at).toLocaleTimeString('en-US', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}`
+                      : 'Upcoming Time Slot'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {activeInterview?.meeting_link ? (
+                    <a
+                      href={activeInterview.meeting_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-5 py-2.5 rounded-xl bg-white text-[#002a64] font-black text-xs hover:bg-blue-50 transition-colors shadow-xs flex items-center gap-1.5"
+                    >
+                      <Video className="w-4 h-4 text-[#0058be]" />
+                      <span>Join Call</span>
+                    </a>
+                  ) : (
+                    <Link
+                      to="/candidate/interviews"
+                      className="px-5 py-2.5 rounded-xl bg-white text-[#002a64] font-black text-xs hover:bg-blue-50 transition-colors shadow-xs"
+                    >
+                      View in Interview Center
+                    </Link>
+                  )}
+                </div>
               </div>
+            </div>
+          )}
+
+          {/* Recruiter Notes Card (Figma Screen 1) */}
+          {activeInterview?.invitation_note && (
+            <div className="p-5 rounded-2xl bg-white border border-[#e0e3e5] shadow-xs space-y-2">
+              <div className="flex items-center justify-between text-xs text-[#71787e]">
+                <span className="font-bold uppercase tracking-wider text-[11px] text-[#191c1e]">
+                  Recruiter Notes
+                </span>
+                <span>Active Round Note</span>
+              </div>
+              <p className="text-xs text-[#41474d] leading-relaxed bg-[#f7f9fb] p-3.5 rounded-xl border border-gray-100">
+                {activeInterview.invitation_note}
+              </p>
             </div>
           )}
 

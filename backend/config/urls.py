@@ -22,6 +22,8 @@ urlpatterns = [
     path("api/v1/recruiter/applications/", include("apps.applications.recruiter_urls")),
     path("api/v1/admin/jobs/", include("apps.jobs.admin_urls")),
     path("api/v1/notifications/", include("apps.notifications.urls")),
+    path("api/v1/recruiter/interviews/", include("apps.interviews.recruiter_urls")),
+    path("api/v1/candidate/interviews/", include("apps.interviews.candidate_urls")),
 ]
 
 if settings.DEBUG:

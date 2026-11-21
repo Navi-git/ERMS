@@ -24,9 +24,13 @@ import {
   Award,
   Briefcase,
   GraduationCap,
+  Star,
+  ShieldCheck,
+  UserCheck,
 } from 'lucide-react';
 import RecruiterLayout from '../../layouts/RecruiterLayout';
 import applicationApi from '../../api/applicationApi';
+import interviewApi from '../../api/interviewApi';
 import RecruiterResumeViewerModal from '../../components/recruiter/RecruiterResumeViewerModal';
 import RejectionReasonModal from '../../components/recruiter/RejectionReasonModal';
 import { useToast } from '../../context/ToastContext';
@@ -46,7 +50,8 @@ export default function RecruiterApplicationDetailPage() {
 
   const [application, setApplication] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('experience'); // 'experience' | 'education' | 'materials'
+  const [activeTab, setActiveTab] = useState('experience'); // 'experience' | 'education' | 'materials' | 'feedback'
+  const [appInterviews, setAppInterviews] = useState([]);
 
   // Modals
   const [resumeModalOpen, setResumeModalOpen] = useState(false);
@@ -58,7 +63,20 @@ export default function RecruiterApplicationDetailPage() {
 
   useEffect(() => {
     fetchApplicationDossier();
+    fetchAppInterviews();
   }, [id]);
+
+  const fetchAppInterviews = async () => {
+    try {
+      const res = await interviewApi.getRecruiterInterviews();
+      const matched = (res.data?.interviews || []).filter(
+        (i) => i.application_id === Number(id)
+      );
+      setAppInterviews(matched);
+    } catch {
+      // Non-fatal
+    }
+  };
 
   const fetchApplicationDossier = async () => {
     setLoading(true);
@@ -223,12 +241,10 @@ export default function RecruiterApplicationDetailPage() {
                 <span>Message</span>
               </button>
 
-              {/* Schedule Interview (Placeholder for interview module) */}
+              {/* Schedule Interview */}
               <button
                 type="button"
-                onClick={() =>
-                  showToast('Multi-panel interview scheduling will be active in the Interview Scheduling module.', 'info')
-                }
+                onClick={() => navigate(`/recruiter/applications/${id}/schedule-interview`)}
                 className="px-4 py-2.5 rounded-xl bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
               >
                 <CalendarCheck2 className="w-4 h-4" />
@@ -480,6 +496,17 @@ export default function RecruiterApplicationDetailPage() {
               >
                 Submitted Materials ({application.materials?.length || 0})
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('feedback')}
+                className={`px-4 py-2 rounded-xl transition-colors cursor-pointer ${
+                  activeTab === 'feedback'
+                    ? 'bg-[#0058be] text-white shadow-xs'
+                    : 'text-[#71787e] hover:bg-[#f1f4f6]'
+                }`}
+              >
+                Feedback & Scorecards ({appInterviews.reduce((acc, i) => acc + (i.feedbacks?.length || 0), 0)})
+              </button>
             </div>
 
             {/* Tab 1: Experience & Summary */}
@@ -649,6 +676,170 @@ export default function RecruiterApplicationDetailPage() {
                     <p className="text-xs text-[#71787e]">No extra documents submitted.</p>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Tab 4: Feedback & Evaluation Scorecards */}
+            {activeTab === 'feedback' && (
+              <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#e0e3e5] shadow-xs space-y-6 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <h3 className="text-base font-bold text-[#191c1e]">Interview Evaluations & Scorecards</h3>
+                    <p className="text-xs text-[#71787e]">
+                      Panelist rubric ratings, competency assessments, and debrief notes.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/recruiter/applications/${id}/schedule-interview`)}
+                    className="px-3.5 py-2 rounded-xl bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Schedule Round</span>
+                  </button>
+                </div>
+
+                {appInterviews.length === 0 ? (
+                  <div className="p-8 text-center border border-dashed border-gray-200 rounded-2xl space-y-2">
+                    <CalendarCheck2 className="w-8 h-8 text-gray-300 mx-auto" />
+                    <p className="text-xs font-bold text-gray-700">No interviews scheduled yet</p>
+                    <p className="text-[11px] text-gray-400">
+                      Schedule a phone screen, technical loop, or portfolio review for this candidate.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    {appInterviews.map((inv) => (
+                      <div
+                        key={inv.id}
+                        className="p-5 rounded-2xl border border-gray-200 bg-gray-50/40 space-y-4"
+                      >
+                        {/* Interview Header */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm text-gray-900">{inv.interview_type_display}</span>
+                              <span className="text-xs text-gray-400">•</span>
+                              <span className="text-xs text-gray-600">
+                                {new Date(inv.scheduled_at).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-500">
+                              Duration: {inv.duration_minutes}m • Status: <span className="capitalize font-semibold text-gray-700">{inv.display_status}</span>
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/recruiter/interviews/${inv.id}/scorecard`)}
+                              className="px-3 py-1.5 rounded-lg bg-[#0058be] hover:bg-[#004ca5] text-white text-xs font-bold transition-colors cursor-pointer"
+                            >
+                              {inv.feedback_submitted ? 'View / Edit Scorecard' : 'Fill Scorecard'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Feedbacks List */}
+                        {inv.feedbacks && inv.feedbacks.length > 0 ? (
+                          <div className="space-y-4">
+                            {inv.feedbacks.map((fb) => (
+                              <div
+                                key={fb.id}
+                                className="p-4 rounded-xl bg-white border border-gray-200 shadow-2xs space-y-3"
+                              >
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-bold text-gray-900">
+                                        {fb.submitted_by_name}
+                                      </span>
+                                      {fb.on_behalf_of_name && (
+                                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                          on behalf of {fb.on_behalf_of_name}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-gray-400">
+                                      Submitted {new Date(fb.submitted_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex items-center gap-3">
+                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-50 text-[#0058be]">
+                                      {fb.recommendation.replace('_', ' ')}
+                                    </span>
+                                    {fb.overall_score && (
+                                      <div className="flex items-center gap-1 text-xs font-black text-gray-900">
+                                        <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                                        <span>{fb.overall_score} / 5</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Criteria breakdown */}
+                                {fb.criteria_ratings && fb.criteria_ratings.length > 0 && (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-gray-100">
+                                    {fb.criteria_ratings.map((cr) => (
+                                      <div
+                                        key={cr.id}
+                                        className="p-2.5 rounded-lg bg-gray-50 border border-gray-100 flex items-center justify-between text-xs"
+                                      >
+                                        <span className="font-semibold text-gray-800 truncate pr-2">
+                                          {cr.criterion_label}
+                                        </span>
+                                        <span className="font-bold text-amber-500 shrink-0">
+                                          ★ {cr.score}/5
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Qualitative comments */}
+                                {fb.comments && (
+                                  <div className="space-y-1 text-xs pt-1">
+                                    <span className="font-bold text-gray-700">Strengths:</span>
+                                    <p className="text-gray-600 leading-relaxed bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                                      {fb.comments}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {fb.growth_areas && (
+                                  <div className="space-y-1 text-xs pt-1">
+                                    <span className="font-bold text-amber-700">Areas for Growth:</span>
+                                    <p className="text-gray-600 leading-relaxed bg-gray-50 p-2.5 rounded-lg border border-gray-100">
+                                      {fb.growth_areas}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {fb.internal_notes && (
+                                  <div className="p-2.5 rounded-lg bg-amber-50/50 border border-amber-200 text-xs space-y-0.5">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                                      Internal Hiring Team Note (Confidential)
+                                    </span>
+                                    <p className="text-amber-900 leading-relaxed">{fb.internal_notes}</p>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500 italic">
+                            No scorecard submitted yet for this round.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
