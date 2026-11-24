@@ -20,9 +20,14 @@ import {
   Loader2,
   AlertCircle,
   Video,
+  Award,
+  ArrowRight,
+  Sparkles,
 } from 'lucide-react';
 import CandidateLayout from '../../layouts/CandidateLayout';
 import applicationApi from '../../api/applicationApi';
+import interviewApi from '../../api/interviewApi';
+import offerApi from '../../api/offerApi';
 import { useToast } from '../../context/ToastContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
@@ -35,6 +40,7 @@ export default function CandidateApplicationDetailPage() {
   const { subscribe, markAsRead, recentNotifications } = useNotifications();
 
   const [application, setApplication] = useState(null);
+  const [offer, setOffer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [withdrawing, setWithdrawing] = useState(false);
   const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
@@ -45,12 +51,54 @@ export default function CandidateApplicationDetailPage() {
   const [newMaterialType, setNewMaterialType] = useState('portfolio');
   const [addingMaterial, setAddingMaterial] = useState(false);
   const [showAddMaterialModal, setShowAddMaterialModal] = useState(false);
+  const [activeInterview, setActiveInterview] = useState(null);
+  const [concludedInterview, setConcludedInterview] = useState(null);
 
   const fetchApplicationDetail = useCallback(async (isSilent = false) => {
     if (!isSilent) setLoading(true);
     try {
       const res = await applicationApi.getCandidateApplicationDetail(id);
       setApplication(res.data);
+
+      // Fetch matching interview if scheduled or active
+      try {
+        const invRes = await interviewApi.getCandidateInterviews({ application_id: id });
+        const appInterviews = (invRes.data?.interviews || []).filter(
+          (inv) => Number(inv.application_id) === Number(id)
+        );
+
+        const now = Date.now();
+        // Check for active upcoming interview:
+        // Must be scheduled, candidate hasn't declined, and scheduled end time is in future
+        const upcoming = appInterviews.find((inv) => {
+          if (inv.interview_status !== 'scheduled') return false;
+          if (inv.my_response_status === 'declined') return false;
+          if (inv.has_ended) return false;
+          const endMs = new Date(inv.scheduled_at).getTime() + (inv.duration_minutes || 60) * 60 * 1000;
+          return endMs > now;
+        });
+
+        // Check for most recent completed or past interview
+        const concluded = appInterviews.find((inv) => {
+          if (inv.interview_status === 'completed') return true;
+          if (inv.has_ended) return true;
+          const endMs = new Date(inv.scheduled_at).getTime() + (inv.duration_minutes || 60) * 60 * 1000;
+          return endMs <= now;
+        });
+
+        setActiveInterview(upcoming || null);
+        setConcludedInterview(concluded || null);
+      } catch {
+        // Non-fatal
+      }
+
+      // Fetch formal offer if in offer or hired stage
+      try {
+        const offRes = await offerApi.getCandidateApplicationOffer(id);
+        setOffer(offRes.data?.offer || null);
+      } catch {
+        // Non-fatal
+      }
     } catch (err) {
       if (!isSilent) {
         showToast('Application not found or access denied.', 'error');
@@ -230,6 +278,34 @@ export default function CandidateApplicationDetailPage() {
     }
   };
 
+  const appStatus = application?.application_status;
+  const isOfferStage = appStatus === 'offer_sent' || application?.current_stage?.type === 'offer';
+  const isHiredStage = appStatus === 'accepted' || application?.current_stage?.type === 'hired';
+  const isPostInterviewStage = isOfferStage || isHiredStage || ['rejected', 'withdrawn'].includes(appStatus);
+
+  // Check if an interview stage is marked as completed in the pipeline stepper
+  const isInterviewStageCompleted = application?.pipeline_stepper?.some(
+    (step) => step.type === 'interview' && step.is_completed && !step.is_current
+  );
+
+  // Active upcoming interview banner should ONLY show when:
+  // 1. Not in a post-interview stage (offer, hired, rejected, withdrawn)
+  // 2. Active upcoming interview exists, is scheduled, and has not ended
+  // 3. Application is still in active interview stage
+  const shouldShowActiveInterviewBanner =
+    !isPostInterviewStage &&
+    !isInterviewStageCompleted &&
+    appStatus === 'interview_scheduled' &&
+    Boolean(activeInterview);
+
+  // Concluded interview notice:
+  // Show when the candidate attended or meeting elapsed, but before recruiter moves to offer/next stage
+  const shouldShowConcludedNotice =
+    !isPostInterviewStage &&
+    !shouldShowActiveInterviewBanner &&
+    appStatus === 'interview_scheduled' &&
+    Boolean(concludedInterview);
+
   return (
     <CandidateLayout>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
@@ -324,8 +400,112 @@ export default function CandidateApplicationDetailPage() {
             </div>
           )}
 
-          {/* Active Focus Card (Figma Page 5: Interview Banner) */}
-          {application.application_status === 'interview_scheduled' && (
+          {/* Offer Extended Banner */}
+          {isOfferStage && (
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-100">
+                  <Award className="w-4 h-4 text-white" />
+                  <span>Offer Stage Reached</span>
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-white/20 text-white">
+                  Active Update
+                </span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Congratulations! You've received an offer</h3>
+                <p className="text-xs text-amber-50 mt-1 max-w-xl leading-relaxed">
+                  The hiring team at <span className="font-semibold text-white">{application.company_name}</span> has extended a formal employment offer for <span className="font-semibold text-white">{application.job_title}</span>. Review your complete compensation breakdown and respond before the expiration deadline.
+                </p>
+              </div>
+
+              {offer && (
+                <div className="p-3.5 rounded-xl bg-white/15 backdrop-blur-xs border border-white/20 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="font-bold text-white text-sm">
+                      ${(offer.salary || 0).toLocaleString()} {offer.currency || 'USD'}
+                    </span>
+                    <span className="text-amber-100">
+                      • {offer.pay_frequency?.replace('_', ' ') || 'Annual'}
+                    </span>
+                    {offer.expiration_date && (
+                      <span className="text-amber-200 text-[11px]">
+                        • Expiration: {new Date(offer.expiration_date).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  {offer.offer_document_url && (
+                    <a
+                      href={offer.offer_document_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold text-xs transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download Offer Letter (.PDF)</span>
+                    </a>
+                  )}
+                </div>
+              )}
+
+              <div className="pt-2 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/candidate/applications/${id}/offer`)}
+                  className="px-5 py-2.5 rounded-xl bg-white text-amber-900 text-xs font-bold hover:bg-amber-50 transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+                >
+                  <Award className="w-4 h-4 text-amber-700" />
+                  <span>Review & Respond to Formal Offer</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Hired Confirmation Banner */}
+          {isHiredStage && (
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-sm space-y-3 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-100">
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <span>Hiring Confirmed</span>
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-white/20 text-white">
+                  Completed
+                </span>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Welcome to the Team!</h3>
+                <p className="text-xs text-emerald-50 mt-1 max-w-xl leading-relaxed">
+                  Your offer acceptance has been recorded for <span className="font-semibold text-white">{application.job_title}</span> at <span className="font-semibold text-white">{application.company_name}</span>. The talent team will coordinate your upcoming onboarding journey.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Interview Concluded / Under Review Notice */}
+          {shouldShowConcludedNotice && (
+            <div className="p-5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-2 animate-in fade-in">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 uppercase tracking-wider">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>{concludedInterview?.interview_type_display || 'Interview Round'} Concluded</span>
+                </div>
+                <Link
+                  to="/candidate/interviews"
+                  className="text-xs font-bold text-[#0058be] hover:underline flex items-center gap-1"
+                >
+                  <span>Interview Center</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <p className="text-xs text-emerald-900 leading-relaxed">
+                Your interview session has concluded. The hiring team is reviewing evaluation scorecards from the interviewers and calibrating feedback. You will receive an update as soon as the review is complete.
+              </p>
+            </div>
+          )}
+
+          {/* Active Focus Card (Figma Screen 1: Interview Banner - Only when interview is active & upcoming) */}
+          {shouldShowActiveInterviewBanner && (
             <div className="p-6 rounded-2xl bg-[#002a64] text-white space-y-4 shadow-sm animate-in fade-in">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-blue-200">
@@ -333,26 +513,74 @@ export default function CandidateApplicationDetailPage() {
                 </span>
                 <span className="flex items-center gap-1.5 text-xs text-blue-200">
                   <Video className="w-4 h-4" />
-                  Live Meeting
+                  {activeInterview?.location || 'Live Video Meeting'}
                 </span>
               </div>
               <div>
-                <h3 className="text-lg font-bold">Upcoming Interview Round</h3>
-                <p className="text-xs text-blue-100 mt-1 max-w-xl">
-                  Your interview has been scheduled with the engineering panel. Review your portfolio projects and technical architecture case studies.
+                <h3 className="text-lg font-bold">
+                  {activeInterview?.interview_type_display || 'Technical Interview'}
+                </h3>
+                <p className="text-xs text-blue-100 mt-1 max-w-xl leading-relaxed">
+                  {activeInterview?.invitation_note ||
+                    'Deep dive into portfolio case studies, technical architecture, and system design process.'}
                 </p>
               </div>
-              <div className="pt-2 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() =>
-                    showToast('Virtual meeting room will open 10 minutes prior to call time in the Interview module.', 'info')
-                  }
-                  className="px-5 py-2.5 rounded-xl bg-white text-[#0058be] font-bold text-xs hover:bg-blue-50 transition-colors shadow-xs cursor-pointer"
-                >
-                  Join Call (Upcoming)
-                </button>
+
+              <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-blue-900/60 pt-4">
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300 block">
+                    Scheduled Time
+                  </span>
+                  <span className="text-sm font-black text-white">
+                    {activeInterview?.scheduled_at
+                      ? `${new Date(activeInterview.scheduled_at).toLocaleDateString('en-US', {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        })} at ${new Date(activeInterview.scheduled_at).toLocaleTimeString('en-US', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}`
+                      : 'Upcoming Time Slot'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {activeInterview?.meeting_link ? (
+                    <a
+                      href={activeInterview.meeting_link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-5 py-2.5 rounded-xl bg-white text-[#002a64] font-black text-xs hover:bg-blue-50 transition-colors shadow-xs flex items-center gap-1.5"
+                    >
+                      <Video className="w-4 h-4 text-[#0058be]" />
+                      <span>Join Call</span>
+                    </a>
+                  ) : (
+                    <Link
+                      to="/candidate/interviews"
+                      className="px-5 py-2.5 rounded-xl bg-white text-[#002a64] font-black text-xs hover:bg-blue-50 transition-colors shadow-xs"
+                    >
+                      View in Interview Center
+                    </Link>
+                  )}
+                </div>
               </div>
+            </div>
+          )}
+
+          {/* Recruiter Notes Card (Figma Screen 1 - Only when interview is active & upcoming) */}
+          {shouldShowActiveInterviewBanner && activeInterview?.invitation_note && (
+            <div className="p-5 rounded-2xl bg-white border border-[#e0e3e5] shadow-xs space-y-2">
+              <div className="flex items-center justify-between text-xs text-[#71787e]">
+                <span className="font-bold uppercase tracking-wider text-[11px] text-[#191c1e]">
+                  Recruiter Notes
+                </span>
+                <span>Active Round Note</span>
+              </div>
+              <p className="text-xs text-[#41474d] leading-relaxed bg-[#f7f9fb] p-3.5 rounded-xl border border-gray-100">
+                {activeInterview.invitation_note}
+              </p>
             </div>
           )}
 
@@ -485,6 +713,50 @@ export default function CandidateApplicationDetailPage() {
                   </button>
                 )}
               </div>
+
+              {/* Formal Offer Letter Document */}
+              {offer && (
+                <div className="flex items-center justify-between p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs mb-3 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-900 flex items-center justify-center shrink-0">
+                      <Award className="w-5 h-5 text-amber-700" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-slate-900">
+                          Official Offer Letter ({offer.offer_reference || 'REF'})
+                        </p>
+                        <span className="px-2 py-0.2 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800">
+                          {offer.status?.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        ${(offer.salary || 0).toLocaleString()} {offer.currency || 'USD'} • Formal Employment Agreement
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {offer.offer_document_url && (
+                      <a
+                        href={offer.offer_document_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-900 font-bold text-xs flex items-center gap-1.5 transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>PDF</span>
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/candidate/applications/${id}/offer`)}
+                      className="px-3 py-1.5 rounded-lg bg-[#0058be] text-white font-bold text-xs hover:bg-[#004ca5] transition-colors"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {application.materials?.length > 0 ? (
                 <div className="space-y-2.5">

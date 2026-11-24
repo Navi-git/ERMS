@@ -372,10 +372,24 @@ export default function CandidateApplicationsPage() {
 
                       {/* Action */}
                       <td className="py-4 px-5 text-right whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1 text-xs font-bold text-[#0058be] group-hover:underline">
-                          <span>View Details</span>
-                          <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                        </div>
+                        {app.application_status === 'offer_sent' ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/candidate/applications/${app.id}/offer`);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
+                          >
+                            <span>View Offer</span>
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          </button>
+                        ) : (
+                          <div className="inline-flex items-center gap-1 text-xs font-bold text-[#0058be] group-hover:underline">
+                            <span>View Details</span>
+                            <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
