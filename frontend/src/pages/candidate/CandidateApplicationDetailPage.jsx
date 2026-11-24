@@ -27,6 +27,7 @@ import {
 import CandidateLayout from '../../layouts/CandidateLayout';
 import applicationApi from '../../api/applicationApi';
 import interviewApi from '../../api/interviewApi';
+import offerApi from '../../api/offerApi';
 import { useToast } from '../../context/ToastContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { resolvePhotoUrl } from '../../utils/imageUrl';
@@ -39,6 +40,7 @@ export default function CandidateApplicationDetailPage() {
   const { subscribe, markAsRead, recentNotifications } = useNotifications();
 
   const [application, setApplication] = useState(null);
+  const [offer, setOffer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [withdrawing, setWithdrawing] = useState(false);
   const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
@@ -86,6 +88,14 @@ export default function CandidateApplicationDetailPage() {
 
         setActiveInterview(upcoming || null);
         setConcludedInterview(concluded || null);
+      } catch {
+        // Non-fatal
+      }
+
+      // Fetch formal offer if in offer or hired stage
+      try {
+        const offRes = await offerApi.getCandidateApplicationOffer(id);
+        setOffer(offRes.data?.offer || null);
       } catch {
         // Non-fatal
       }
@@ -405,8 +415,48 @@ export default function CandidateApplicationDetailPage() {
               <div>
                 <h3 className="text-lg font-bold">Congratulations! You've received an offer</h3>
                 <p className="text-xs text-amber-50 mt-1 max-w-xl leading-relaxed">
-                  The hiring team at <span className="font-semibold text-white">{application.company_name}</span> has extended a formal employment offer for <span className="font-semibold text-white">{application.job_title}</span>. Our recruitment team will be in touch with your formal offer letter and compensation package.
+                  The hiring team at <span className="font-semibold text-white">{application.company_name}</span> has extended a formal employment offer for <span className="font-semibold text-white">{application.job_title}</span>. Review your complete compensation breakdown and respond before the expiration deadline.
                 </p>
+              </div>
+
+              {offer && (
+                <div className="p-3.5 rounded-xl bg-white/15 backdrop-blur-xs border border-white/20 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="font-bold text-white text-sm">
+                      ${(offer.salary || 0).toLocaleString()} {offer.currency || 'USD'}
+                    </span>
+                    <span className="text-amber-100">
+                      • {offer.pay_frequency?.replace('_', ' ') || 'Annual'}
+                    </span>
+                    {offer.expiration_date && (
+                      <span className="text-amber-200 text-[11px]">
+                        • Expiration: {new Date(offer.expiration_date).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                  {offer.offer_document_url && (
+                    <a
+                      href={offer.offer_document_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold text-xs transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download Offer Letter (.PDF)</span>
+                    </a>
+                  )}
+                </div>
+              )}
+
+              <div className="pt-2 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate(`/candidate/applications/${id}/offer`)}
+                  className="px-5 py-2.5 rounded-xl bg-white text-amber-900 text-xs font-bold hover:bg-amber-50 transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+                >
+                  <Award className="w-4 h-4 text-amber-700" />
+                  <span>Review & Respond to Formal Offer</span>
+                </button>
               </div>
             </div>
           )}
@@ -663,6 +713,50 @@ export default function CandidateApplicationDetailPage() {
                   </button>
                 )}
               </div>
+
+              {/* Formal Offer Letter Document */}
+              {offer && (
+                <div className="flex items-center justify-between p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs mb-3 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-900 flex items-center justify-center shrink-0">
+                      <Award className="w-5 h-5 text-amber-700" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-slate-900">
+                          Official Offer Letter ({offer.offer_reference || 'REF'})
+                        </p>
+                        <span className="px-2 py-0.2 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800">
+                          {offer.status?.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        ${(offer.salary || 0).toLocaleString()} {offer.currency || 'USD'} • Formal Employment Agreement
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {offer.offer_document_url && (
+                      <a
+                        href={offer.offer_document_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-3 py-1.5 rounded-lg border border-amber-300 bg-white hover:bg-amber-50 text-amber-900 font-bold text-xs flex items-center gap-1.5 transition-colors"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>PDF</span>
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/candidate/applications/${id}/offer`)}
+                      className="px-3 py-1.5 rounded-lg bg-[#0058be] text-white font-bold text-xs hover:bg-[#004ca5] transition-colors"
+                    >
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {application.materials?.length > 0 ? (
                 <div className="space-y-2.5">

@@ -47,6 +47,8 @@ import CandidateInterviewCenterPage from './pages/candidate/CandidateInterviewCe
 import RecruiterInterviewsDashboardPage from './pages/recruiter/RecruiterInterviewsDashboardPage';
 import RecruiterScheduleInterviewPage from './pages/recruiter/RecruiterScheduleInterviewPage';
 import RecruiterScorecardPage from './pages/recruiter/RecruiterScorecardPage';
+import RecruiterCreateOfferPage from './pages/recruiter/RecruiterCreateOfferPage';
+import CandidateOfferPage from './pages/candidate/CandidateOfferPage';
 import { ToastProvider } from './context/ToastContext';
 import { NotificationProvider } from './context/NotificationContext';
 
@@ -81,6 +83,7 @@ export default function App() {
           {/* Candidate Applications */}
           <Route path="/candidate/applications" element={<CandidateApplicationsPage />} />
           <Route path="/candidate/applications/:id" element={<CandidateApplicationDetailPage />} />
+          <Route path="/candidate/applications/:id/offer" element={<CandidateOfferPage />} />
           <Route path="/candidate/interviews" element={<CandidateInterviewCenterPage />} />
           <Route path="/candidate/saved-jobs" element={<SavedJobsPage />} />
           <Route path="/candidate/notifications" element={<CandidateNotificationsPage />} />
@@ -101,7 +104,9 @@ export default function App() {
           {/* Recruiter Applications & Screening */}
           <Route path="/recruiter/applicants" element={<RecruiterAllApplicantsPage />} />
           <Route path="/recruiter/applications/:id" element={<RecruiterApplicationDetailPage />} />
+          <Route path="/recruiter/applications/:id/create-offer" element={<RecruiterCreateOfferPage />} />
           <Route path="/recruiter/applications/:id/schedule-interview" element={<RecruiterScheduleInterviewPage />} />
+          <Route path="/recruiter/offers/:offerId" element={<RecruiterCreateOfferPage />} />
           <Route path="/recruiter/interviews" element={<RecruiterInterviewsDashboardPage />} />
           <Route path="/recruiter/interviews/:id/scorecard" element={<RecruiterScorecardPage />} />
           <Route path="/recruiter/notifications" element={<RecruiterNotificationsPage />} />

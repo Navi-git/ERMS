@@ -248,6 +248,29 @@ export default function RecruiterApplicationDetailPage() {
                 <span>Schedule Interview</span>
               </button>
 
+              {/* Offer Button */}
+              {['offer_sent', 'accepted'].includes(application.application_status) ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/recruiter/applications/${id}/create-offer`)}
+                  className="px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <Award className="w-4 h-4 text-amber-600" />
+                  <span>
+                    {application.application_status === 'accepted' ? 'Offer Accepted' : 'Offer Extended'}
+                  </span>
+                </button>
+              ) : !['rejected', 'withdrawn', 'accepted'].includes(application.application_status) ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/recruiter/applications/${id}/create-offer`)}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs hover:shadow"
+                >
+                  <Award className="w-4 h-4" />
+                  <span>Create Formal Offer</span>
+                </button>
+              ) : null}
+
               {/* Flexible Advance Stage Dropdown */}
               {stages.length > 0 && (
                 <div className="relative">
