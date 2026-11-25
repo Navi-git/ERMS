@@ -107,12 +107,21 @@ class CandidateOfferDownloadView(APIView):
         except Offer.DoesNotExist:
             raise ApiError(code="offer_not_found", message="Offer document not found.", status_code=404)
 
+        from .services.letter_generator import generate_offer_pdf
+
         if not offer.offer_document_url:
-            raise ApiError(code="document_not_ready", message="Offer document is being generated.", status_code=400)
+            offer.offer_document_url = generate_offer_pdf(offer)
+            offer.save(update_fields=["offer_document_url"])
 
         # Resolve media path
         relative_path = offer.offer_document_url.replace(settings.MEDIA_URL, "").lstrip("/")
         full_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+
+        if not os.path.exists(full_path):
+            offer.offer_document_url = generate_offer_pdf(offer)
+            offer.save(update_fields=["offer_document_url"])
+            relative_path = offer.offer_document_url.replace(settings.MEDIA_URL, "").lstrip("/")
+            full_path = os.path.join(settings.MEDIA_ROOT, relative_path)
 
         if not os.path.exists(full_path):
             raise Http404("Document file missing from server storage.")

@@ -38,6 +38,31 @@ ALLOWED_MERGE_TOKENS = {
 }
 
 
+TOKEN_ALIASES = {
+    "applicant_name": "candidate_name",
+    "canidate_name": "candidate_name",
+    "candidate": "candidate_name",
+    "applicant": "candidate_name",
+    "name": "candidate_name",
+    "role": "job_title",
+    "position": "job_title",
+    "title": "job_title",
+    "company": "company_name",
+    "organization": "company_name",
+    "manager": "hiring_manager",
+    "manager_name": "hiring_manager",
+    "reporting_manager": "hiring_manager",
+    "expiry_date": "expiration_date",
+    "valid_until": "expiration_date",
+    "base_salary": "salary",
+    "annual_salary": "salary",
+    "compensation": "salary",
+    "signing_bonus": "sign_on_bonus",
+    "arrangement": "work_arrangement",
+    "frequency": "pay_frequency",
+}
+
+
 def build_template_context(offer) -> dict:
     app = offer.application
     candidate_user = app.candidate.user
@@ -86,20 +111,25 @@ def build_template_context(offer) -> dict:
     start_date_str = _fmt_date(offer.start_date, "To be determined")
     exp_date_str = _fmt_date(offer.expiration_date, "N/A")
 
+    candidate_name = getattr(candidate_user, "full_name", None) or getattr(candidate_user, "email", "Candidate")
+    job_title = getattr(job, "job_title", getattr(job, "title", "Role"))
+    company_name = getattr(company, "name", "Company")
+
     return {
-        "candidate_name": candidate_user.full_name or candidate_user.email,
-        "company_name": company.name,
-        "job_title": getattr(job, "job_title", getattr(job, "title", "Role")),
+        "candidate_name": candidate_name,
+        "candidate_email": getattr(candidate_user, "email", "") or "",
+        "company_name": company_name,
+        "job_title": job_title,
         "salary": salary_formatted,
         "currency": curr,
-        "pay_frequency": offer.get_pay_frequency_display(),
+        "pay_frequency": offer.get_pay_frequency_display() or "Semi-Monthly",
         "start_date": start_date_str,
         "expiration_date": exp_date_str,
         "hiring_manager": manager_display,
         "equity": equity_str,
         "bonus": bonus_str,
         "sign_on_bonus": sign_on_str,
-        "work_arrangement": offer.get_work_arrangement_display(),
+        "work_arrangement": offer.get_work_arrangement_display() or "Hybrid",
     }
 
 
@@ -108,18 +138,23 @@ def render_template_text(template_text: str, context: dict) -> str:
         template_text = DEFAULT_OFFER_TEMPLATE
 
     def _replace(match):
-        token = match.group(1).strip()
-        return str(context.get(token, f"{{{token}}}"))
+        raw = match.group(1).strip()
+        norm = re.sub(r"[\s-]+", "_", raw.lower())
+        key = TOKEN_ALIASES.get(norm, norm)
+        if key in context and context[key] is not None:
+            return str(context[key])
+        return match.group(0)
 
-    return re.sub(r"\{([a-zA-Z0-9_]+)\}", _replace, template_text)
+    return re.sub(r"\{([^{}]+)\}", _replace, template_text)
 
 
 def generate_offer_pdf(offer) -> str:
     """Generates a professional corporate offer letter PDF using ReportLab and stores in MEDIA_ROOT."""
     context = build_template_context(offer)
-    letter_body = offer.letter_content or render_template_text(
-        offer.template.body_template if offer.template else DEFAULT_OFFER_TEMPLATE, context
+    raw_body = offer.letter_content or (
+        offer.template.body_template if offer.template else DEFAULT_OFFER_TEMPLATE
     )
+    letter_body = render_template_text(raw_body, context)
 
     offers_dir = os.path.join(settings.MEDIA_ROOT, "offers")
     os.makedirs(offers_dir, exist_ok=True)

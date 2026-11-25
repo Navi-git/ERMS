@@ -176,7 +176,11 @@ class RecruiterOfferPreviewLetterView(APIView):
         offer.reporting_manager_title = data.get("reporting_manager_title", offer.reporting_manager_title)
         offer.work_arrangement = data.get("work_arrangement", offer.work_arrangement)
 
-        template_body = data.get("body_template") or (offer.template.body_template if offer.template else DEFAULT_OFFER_TEMPLATE)
+        template_body = (
+            data.get("letter_content")
+            or data.get("body_template")
+            or (offer.template.body_template if offer.template else DEFAULT_OFFER_TEMPLATE)
+        )
         context = build_template_context(offer)
         rendered_text = render_template_text(template_body, context)
 

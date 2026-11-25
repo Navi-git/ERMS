@@ -315,3 +315,69 @@ def test_expired_offer_cannot_be_accepted(recruiter_user, candidate_user, applic
     resp = candidate_client.post(f"/api/v1/candidate/offers/{offer_id}/accept/")
     assert resp.status_code == 400
     assert resp.json()["code"] == "offer_expired"
+
+
+@pytest.mark.django_db
+def test_offer_letter_token_replacement_and_pdf_generation(recruiter_user, candidate_user, application):
+    import os
+    import pypdf
+    from django.conf import settings
+
+    recruiter_client = APIClient()
+    recruiter_client.force_authenticate(user=recruiter_user)
+
+    candidate_client = APIClient()
+    candidate_client.force_authenticate(user=candidate_user)
+
+    # 1. Recruiter creates an offer with custom tokens (with underscores and spaces)
+    template_with_tokens = (
+        "Dear {candidate_name},\n\n"
+        "We are pleased to offer you {job title} at {company_name}.\n"
+        "Your base salary is {salary}."
+    )
+    create_resp = recruiter_client.post(
+        f"/api/v1/recruiter/applications/{application.id}/offers/",
+        data={
+            "salary": 190000,
+            "currency": "USD",
+            "start_date": str((timezone.now() + timedelta(days=14)).date()),
+            "expiration_date": str((timezone.now() + timedelta(days=7)).date()),
+            "letter_content": template_with_tokens,
+        },
+        format="json",
+    )
+    assert create_resp.status_code in [200, 201]
+    offer_id = create_resp.json()["offer"]["id"]
+
+    # 2. Recruiter sends the offer
+    send_resp = recruiter_client.post(f"/api/v1/recruiter/offers/{offer_id}/send/")
+    assert send_resp.status_code == 200
+
+    # 3. Candidate views offer: letter_content must have resolved tokens
+    cand_resp = candidate_client.get(f"/api/v1/candidate/applications/{application.id}/offer/")
+    assert cand_resp.status_code == 200
+    letter = cand_resp.json()["offer"]["letter_content"]
+    assert "Alex Walker" in letter
+    assert "Senior Product Designer" in letter
+    assert "TechGlobal Labs" in letter
+    assert "$190,000 USD" in letter
+    assert "{candidate_name}" not in letter
+    assert "{job title}" not in letter
+
+    # 4. Candidate downloads PDF: PDF content must not have tokens
+    download_resp = candidate_client.get(f"/api/v1/candidate/offers/{offer_id}/download/")
+    assert download_resp.status_code == 200
+    assert download_resp["Content-Type"] == "application/pdf"
+
+    offer = Offer.objects.get(id=offer_id)
+    rel_path = offer.offer_document_url.replace(settings.MEDIA_URL, "").lstrip("/")
+    full_path = os.path.join(settings.MEDIA_ROOT, rel_path)
+    assert os.path.exists(full_path)
+
+    reader = pypdf.PdfReader(full_path)
+    pdf_text = "".join(page.extract_text() for page in reader.pages)
+    assert "Alex Walker" in pdf_text
+    assert "Senior Product Designer" in pdf_text
+    assert "{candidate_name}" not in pdf_text
+    assert "{job title}" not in pdf_text
+    assert "{company_name}" not in pdf_text
