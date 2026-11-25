@@ -28,6 +28,8 @@ urlpatterns = [
     path("api/v1/notifications/", include("apps.notifications.urls")),
     path("api/v1/recruiter/interviews/", include("apps.interviews.recruiter_urls")),
     path("api/v1/candidate/interviews/", include("apps.interviews.candidate_urls")),
+    path("api/v1/conversations/", include("apps.messaging.urls")),
+    path("api/v1/messaging/", include("apps.messaging.urls")),
 ]
 
 if settings.DEBUG:

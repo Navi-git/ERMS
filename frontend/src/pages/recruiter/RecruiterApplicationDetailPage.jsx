@@ -226,15 +226,13 @@ export default function RecruiterApplicationDetailPage() {
                 <span>Resume</span>
               </button>
 
-              {/* Message (Placeholder for messaging module) */}
+              {/* Message */}
               <button
                 type="button"
-                onClick={() =>
-                  showToast('Candidate messaging thread will be active in the Messaging module.', 'info')
-                }
+                onClick={() => navigate(`/recruiter/messages?applicationId=${id}`)}
                 className="px-4 py-2.5 rounded-xl border border-[#c1c7ce] text-xs font-bold text-[#41474d] hover:bg-[#f1f4f6] transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
               >
-                <MessageSquare className="w-4 h-4 text-[#71787e]" />
+                <MessageSquare className="w-4 h-4 text-[#0058be]" />
                 <span>Message</span>
               </button>
 

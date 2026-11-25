@@ -15,11 +15,13 @@ import {
   Sparkles,
   ChevronDown,
   CalendarCheck2,
+  MessageSquare,
 } from 'lucide-react';
 import authApi from '../api/authApi';
 import { logout } from '../store/slices/authSlice';
 import { resolvePhotoUrl } from '../utils/imageUrl';
 import NotificationDropdown from '../components/common/NotificationDropdown';
+import { useChat } from '../context/ChatContext';
 
 export default function CandidateLayout({ children }) {
   const navigate = useNavigate();
@@ -27,6 +29,7 @@ export default function CandidateLayout({ children }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const { unreadTotal: unreadMessages } = useChat?.() || { unreadTotal: 0 };
 
   const handleLogout = async () => {
     try {
@@ -48,6 +51,7 @@ export default function CandidateLayout({ children }) {
     { name: 'My Profile', icon: User, path: '/candidate/profile' },
     { name: 'Resumes & ATS', icon: FileText, path: '/candidate/resumes' },
     { name: 'Applications', icon: Briefcase, path: '/candidate/applications' },
+    { name: 'Messages', icon: MessageSquare, path: '/candidate/messages', badge: unreadMessages },
     { name: 'Interview Center', icon: CalendarCheck2, path: '/candidate/interviews' },
     { name: 'Saved Jobs', icon: Bookmark, path: '/candidate/saved-jobs' },
     { name: 'Notifications', icon: Bell, path: '/candidate/notifications' },
@@ -94,7 +98,12 @@ export default function CandidateLayout({ children }) {
                 <Icon
                   className={`w-4 h-4 ${isActive ? 'text-[#0058be]' : 'text-[#71787e]'}`}
                 />
-                {item.name}
+                <span className="flex-1 truncate">{item.name}</span>
+                {item.badge > 0 && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold text-white bg-[#0058be] rounded-full shrink-0">
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}
