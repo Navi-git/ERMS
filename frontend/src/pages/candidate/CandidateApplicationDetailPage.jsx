@@ -362,12 +362,10 @@ export default function CandidateApplicationDetailPage() {
 
             {/* Header Actions */}
             <div className="flex items-center gap-3 self-start">
-              {/* Message Recruiter Button (Figma Page 5) */}
+              {/* Message Recruiter Button */}
               <button
                 type="button"
-                onClick={() =>
-                  showToast('Direct recruiter chat will be activated in the upcoming Messaging module.', 'info')
-                }
+                onClick={() => navigate(`/candidate/messages?applicationId=${id}`)}
                 className="px-4 py-2.5 rounded-xl border border-[#c1c7ce] text-xs font-bold text-[#41474d] hover:bg-[#f1f4f6] transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
               >
                 <MessageSquare className="w-4 h-4 text-[#0058be]" />

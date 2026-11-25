@@ -114,7 +114,7 @@ ERMS is architected following clean separation of concerns:
 - [ ] **Module 6**: Job Requisitions, Publishing & Candidate Matching
 - [ ] **Module 7**: Application Tracking System (Multi-Stage Hiring Pipeline)
 - [ ] **Module 8**: Interview Scheduling & Multi-Criteria Scorecards
-- [ ] **Module 9**: Job Offers, Negotiations & Digital Signatures
+- [ ] **Module 9**: Job Offers, Negotiations 
 - [ ] **Module 10**: Subscription Plans, Stripe Billing & Usage Quotas
 
 ---

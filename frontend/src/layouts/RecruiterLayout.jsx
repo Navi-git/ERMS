@@ -29,12 +29,14 @@ import companyApi from '../api/companyApi';
 import { logout } from '../store/slices/authSlice';
 import { resolvePhotoUrl } from '../utils/imageUrl';
 import NotificationDropdown from '../components/common/NotificationDropdown';
+import { useChat } from '../context/ChatContext';
 
 export default function RecruiterLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
+  const { unreadTotal: unreadMessages } = useChat() || { unreadTotal: 0 };
 
   const [company, setCompany] = useState(null);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -147,7 +149,12 @@ export default function RecruiterLayout({ children }) {
                 }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-[#0058be]' : 'text-[#71787e]'}`} />
-                <span>{item.name}</span>
+                <span className="flex-1 truncate">{item.name}</span>
+                {item.name === 'Messages' && unreadMessages > 0 && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold text-white bg-[#0058be] rounded-full shrink-0">
+                    {unreadMessages}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -169,7 +176,12 @@ export default function RecruiterLayout({ children }) {
                 }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-[#0058be]' : 'text-[#71787e]'}`} />
-                <span>{item.name}</span>
+                <span className="flex-1 truncate">{item.name}</span>
+                {item.name === 'Messages' && unreadMessages > 0 && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold text-white bg-[#0058be] rounded-full shrink-0">
+                    {unreadMessages}
+                  </span>
+                )}
               </Link>
             );
           })}
