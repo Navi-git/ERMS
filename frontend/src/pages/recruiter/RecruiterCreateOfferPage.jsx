@@ -26,6 +26,8 @@ import {
 import { offerApi } from '../../api/offerApi';
 import { applicationApi } from '../../api/applicationApi';
 import { useToast } from '../../context/ToastContext';
+import EditReportingManagerModal from '../../components/recruiter/EditReportingManagerModal';
+import DiscardDraftConfirmModal from '../../components/recruiter/DiscardDraftConfirmModal';
 
 export const DEFAULT_OFFER_TEMPLATE = `Dear {candidate_name},
 
@@ -76,7 +78,21 @@ export default function RecruiterCreateOfferPage() {
   const [letterContent, setLetterContent] = useState(DEFAULT_OFFER_TEMPLATE);
   const [attachments, setAttachments] = useState([]);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [managerModalOpen, setManagerModalOpen] = useState(false);
+  const [discardModalOpen, setDiscardModalOpen] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState(null);
+
+  const handleSaveReportingManager = ({ name, title }) => {
+    setReportingManagerName(name);
+    if (title !== undefined) setReportingManagerTitle(title);
+    setManagerModalOpen(false);
+    showToast('Reporting manager updated.', 'success');
+  };
+
+  const handleConfirmDiscard = () => {
+    setDiscardModalOpen(false);
+    navigate(`/recruiter/applications/${applicationId}`);
+  };
 
   // File Upload State
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -417,7 +433,7 @@ export default function RecruiterCreateOfferPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => navigate(`/recruiter/applications/${applicationId}`)}
+              onClick={() => setDiscardModalOpen(true)}
               className="px-3.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -643,8 +659,16 @@ export default function RecruiterCreateOfferPage() {
               {/* Reporting Line Strip */}
               <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#0058be]/10 text-[#0058be] font-bold flex items-center justify-center text-xs">
-                    MK
+                  <div className="w-9 h-9 rounded-xl bg-[#0058be]/10 text-[#0058be] font-bold flex items-center justify-center text-xs shrink-0">
+                    {reportingManagerName
+                      ? reportingManagerName
+                          .trim()
+                          .split(/\s+/)
+                          .map((n) => n[0])
+                          .join('')
+                          .substring(0, 2)
+                          .toUpperCase()
+                      : 'HM'}
                   </div>
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Reporting Line</span>
@@ -654,11 +678,8 @@ export default function RecruiterCreateOfferPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    const newName = prompt('Enter Reporting Manager Name:', reportingManagerName);
-                    if (newName) setReportingManagerName(newName);
-                  }}
-                  className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                  onClick={() => setManagerModalOpen(true)}
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-[#0058be] hover:border-blue-200 transition-colors cursor-pointer"
                 >
                   Change Manager
                 </button>
@@ -1026,11 +1047,7 @@ export default function RecruiterCreateOfferPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => {
-                if (confirm('Discard changes and return to applicant dossier?')) {
-                  navigate(`/recruiter/applications/${applicationId}`);
-                }
-              }}
+              onClick={() => setDiscardModalOpen(true)}
               className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
             >
               Discard Draft
@@ -1124,6 +1141,24 @@ export default function RecruiterCreateOfferPage() {
           </div>
         </div>
       )}
+
+      {/* Edit Reporting Manager Modal */}
+      <EditReportingManagerModal
+        isOpen={managerModalOpen}
+        onClose={() => setManagerModalOpen(false)}
+        managerName={reportingManagerName}
+        managerTitle={reportingManagerTitle}
+        onSave={handleSaveReportingManager}
+      />
+
+      {/* Discard Draft Confirmation Modal */}
+      <DiscardDraftConfirmModal
+        isOpen={discardModalOpen}
+        onClose={() => setDiscardModalOpen(false)}
+        onConfirm={handleConfirmDiscard}
+        candidateName={cand.full_name || 'Candidate'}
+        applicationId={applicationId}
+      />
     </div>
   );
 }
