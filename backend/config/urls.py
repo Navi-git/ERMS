@@ -1,0 +1,36 @@
+from django.conf import settings
+from django.conf.urls.static import static
+from django.contrib import admin
+from django.urls import include, path
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("api/v1/auth/", include("apps.accounts.urls")),
+    path("api/v1/users/", include("apps.accounts.user_urls")),
+    path("api/v1/admin/", include("apps.accounts.admin_urls")),
+    path("api/v1/admin/", include("apps.master_data.admin_urls")),
+    path("api/v1/admin/", include("apps.companies.admin_urls")),
+    path("api/v1/master-data/", include("apps.master_data.urls")),
+    path("api/v1/candidate/", include("apps.candidates.urls")),
+    path("api/v1/recruiter/", include("apps.candidates.recruiter_urls")),
+    path("api/v1/recruiter/company/", include("apps.companies.recruiter_urls")),
+    path("api/v1/recruiter/jobs/", include("apps.jobs.recruiter_urls")),
+    path("api/v1/companies/", include("apps.companies.urls")),
+    path("api/v1/jobs/", include("apps.jobs.urls")),
+    path("api/v1/candidate/offers/", include("apps.offers.candidate_offer_urls")),
+    path("api/v1/candidate/applications/", include("apps.offers.candidate_urls")),
+    path("api/v1/candidate/applications/", include("apps.applications.candidate_urls")),
+    path("api/v1/candidate/saved-jobs/", include("apps.jobs.candidate_urls")),
+    path("api/v1/recruiter/offers/", include("apps.offers.recruiter_urls")),
+    path("api/v1/recruiter/applications/", include("apps.offers.recruiter_application_urls")),
+    path("api/v1/recruiter/applications/", include("apps.applications.recruiter_urls")),
+    path("api/v1/admin/jobs/", include("apps.jobs.admin_urls")),
+    path("api/v1/notifications/", include("apps.notifications.urls")),
+    path("api/v1/recruiter/interviews/", include("apps.interviews.recruiter_urls")),
+    path("api/v1/candidate/interviews/", include("apps.interviews.candidate_urls")),
+    path("api/v1/conversations/", include("apps.messaging.urls")),
+    path("api/v1/messaging/", include("apps.messaging.urls")),
+]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
