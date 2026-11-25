@@ -169,9 +169,7 @@ class OfferService:
         if "letter_content" in data and data["letter_content"]:
             offer.letter_content = data["letter_content"]
         elif not offer.letter_content:
-            context = build_template_context(offer)
-            tpl = offer.template.body_template if offer.template else DEFAULT_OFFER_TEMPLATE
-            offer.letter_content = render_template_text(tpl, context)
+            offer.letter_content = offer.template.body_template if offer.template else DEFAULT_OFFER_TEMPLATE
 
         offer.save()
         return offer
@@ -204,12 +202,19 @@ class OfferService:
         if offer.expiration_date < timezone.now().date():
             raise ApiError(code="invalid_expiration", message="Offer expiration deadline must be in the future.", status_code=400)
 
+        # Render letter content if it contains unrendered tokens
+        context = build_template_context(offer)
+        raw_body = offer.letter_content or (
+            offer.template.body_template if offer.template else DEFAULT_OFFER_TEMPLATE
+        )
+        offer.letter_content = render_template_text(raw_body, context)
+
         # Generate branded PDF document
         pdf_url = generate_offer_pdf(offer)
         offer.offer_document_url = pdf_url
         offer.status = OfferStatus.SENT
         offer.sent_at = timezone.now()
-        offer.save(update_fields=["offer_document_url", "status", "sent_at", "updated_at"])
+        offer.save(update_fields=["letter_content", "offer_document_url", "status", "sent_at", "updated_at"])
 
         # Sync Application status
         app = offer.application

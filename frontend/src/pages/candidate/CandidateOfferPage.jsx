@@ -188,6 +188,59 @@ export default function CandidateOfferPage() {
     remainingDays = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }
 
+  const getRenderedOfferLetter = () => {
+    if (!offer?.letter_content) return 'Official formal letter stipulations on record.';
+    const text = offer.letter_content;
+    if (!text.includes('{')) return text;
+
+    const values = {
+      candidate_name: offer.candidate_name || 'Candidate',
+      candidate_email: offer.candidate_email || '',
+      company_name: offer.company_name || 'Company',
+      job_title: offer.job_title || 'Position',
+      salary: offer.salary ? `$${offer.salary.toLocaleString()} ${offer.currency || 'USD'}` : 'N/A',
+      currency: offer.currency || 'USD',
+      pay_frequency: offer.pay_frequency?.replace(/_/g, ' ') || 'semi-monthly',
+      start_date: startStr,
+      expiration_date: expirationStr,
+      hiring_manager: offer.reporting_manager_name || 'Hiring Manager',
+      equity: offer.equity_units ? `${offer.equity_units.toLocaleString()} ${offer.equity_type || 'Units'} (${offer.equity_vesting_schedule || ''})` : 'N/A',
+      bonus: offer.bonus_target_percent ? `${offer.bonus_target_percent}% target bonus` : 'Standard company incentive',
+      sign_on_bonus: offer.sign_on_bonus ? `$${offer.sign_on_bonus.toLocaleString()} ${offer.currency || 'USD'}` : 'None',
+      work_arrangement: offer.work_arrangement || 'Hybrid',
+    };
+
+    const aliasMap = {
+      applicant_name: 'candidate_name',
+      canidate_name: 'candidate_name',
+      candidate: 'candidate_name',
+      applicant: 'candidate_name',
+      name: 'candidate_name',
+      role: 'job_title',
+      position: 'job_title',
+      title: 'job_title',
+      company: 'company_name',
+      organization: 'company_name',
+      manager: 'hiring_manager',
+      manager_name: 'hiring_manager',
+      reporting_manager: 'hiring_manager',
+      expiry_date: 'expiration_date',
+      valid_until: 'expiration_date',
+      base_salary: 'salary',
+      annual_salary: 'salary',
+      compensation: 'salary',
+      signing_bonus: 'sign_on_bonus',
+      arrangement: 'work_arrangement',
+      frequency: 'pay_frequency',
+    };
+
+    return text.replace(/\{([^{}]+)\}/g, (match, rawToken) => {
+      const norm = rawToken.trim().toLowerCase().replace(/[\s-]+/g, '_');
+      const key = aliasMap[norm] || norm;
+      return values[key] !== undefined ? String(values[key]) : match;
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-32">
       {/* Top Breadcrumb & Return Bar */}
@@ -732,7 +785,7 @@ export default function CandidateOfferPage() {
                 <p>Ref: {offer.offer_reference}</p>
               </div>
               <div className="whitespace-pre-wrap font-sans text-xs text-slate-800 leading-relaxed">
-                {offer.letter_content || 'Official formal letter stipulations on record.'}
+                {getRenderedOfferLetter()}
               </div>
             </div>
 

@@ -26,6 +26,18 @@ import {
 import { offerApi } from '../../api/offerApi';
 import { applicationApi } from '../../api/applicationApi';
 import { useToast } from '../../context/ToastContext';
+import EditReportingManagerModal from '../../components/recruiter/EditReportingManagerModal';
+import DiscardDraftConfirmModal from '../../components/recruiter/DiscardDraftConfirmModal';
+
+export const DEFAULT_OFFER_TEMPLATE = `Dear {candidate_name},
+
+On behalf of {company_name}, I am thrilled to extend an offer for the position of {job_title} reporting to {hiring_manager}. We were immensely impressed by your expertise, system depth, and interview performance.
+
+1. Compensation: Annual base salary of {salary}, payable {pay_frequency} according to the firm's regular payroll schedule.
+2. Equity & Incentives: Subject to board approval, you will be granted {equity} and eligible for {bonus}.
+3. Start Date & Working Arrangement: Your anticipated start date is {start_date}. This role is {work_arrangement}.
+
+This formal offer will remain open until {expiration_date}. Please review the attached terms and submit your official response in the candidate portal. We look forward to building the future together!`;
 
 export default function RecruiterCreateOfferPage() {
   const { id: appIdParam, offerId: offerIdParam } = useParams();
@@ -63,10 +75,24 @@ export default function RecruiterCreateOfferPage() {
     return d.toISOString().split('T')[0];
   });
   const [presetWindow, setPresetWindow] = useState('7');
-  const [letterContent, setLetterContent] = useState('');
+  const [letterContent, setLetterContent] = useState(DEFAULT_OFFER_TEMPLATE);
   const [attachments, setAttachments] = useState([]);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [managerModalOpen, setManagerModalOpen] = useState(false);
+  const [discardModalOpen, setDiscardModalOpen] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState(null);
+
+  const handleSaveReportingManager = ({ name, title }) => {
+    setReportingManagerName(name);
+    if (title !== undefined) setReportingManagerTitle(title);
+    setManagerModalOpen(false);
+    showToast('Reporting manager updated.', 'success');
+  };
+
+  const handleConfirmDiscard = () => {
+    setDiscardModalOpen(false);
+    navigate(`/recruiter/applications/${applicationId}`);
+  };
 
   // File Upload State
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -129,7 +155,11 @@ export default function RecruiterCreateOfferPage() {
     if (o.work_arrangement) setWorkArrangement(o.work_arrangement);
     if (o.start_date) setStartDate(o.start_date);
     if (o.expiration_date) setExpirationDate(o.expiration_date);
-    if (o.letter_content) setLetterContent(o.letter_content);
+    if (o.letter_content) {
+      setLetterContent(o.letter_content);
+    } else {
+      setLetterContent(DEFAULT_OFFER_TEMPLATE);
+    }
     if (o.attachments) setAttachments(o.attachments);
   };
 
@@ -151,24 +181,92 @@ export default function RecruiterCreateOfferPage() {
 
   const simulatedSalary = parseInt(salary, 10) || 0;
   const simulatedSalaryFormatted = `$${simulatedSalary.toLocaleString()} ${currency}`;
-  const simulatedEquity = `${parseInt(equityUnits, 10) || 0} ${equityType} (${equityVestingSchedule})`;
-  const simulatedBonus = `${bonusTargetPercent}% target bonus`;
+  const simulatedEquity = parseInt(equityUnits, 10)
+    ? `${parseInt(equityUnits, 10).toLocaleString()} ${equityType} (${equityVestingSchedule})`
+    : 'None';
+  const simulatedBonus = parseInt(bonusTargetPercent, 10)
+    ? `${bonusTargetPercent}% target bonus`
+    : 'Standard company incentive';
+  const simulatedSignOn = parseInt(signOnBonus, 10)
+    ? `$${parseInt(signOnBonus, 10).toLocaleString()} ${currency}`
+    : 'None';
+
+  const payFrequencyLabels = {
+    semi_monthly: 'semi-monthly (24 pay periods/year)',
+    bi_weekly: 'bi-weekly (26 pay periods/year)',
+    monthly: 'monthly (12 pay periods/year)',
+    annual: 'annually (1 pay period/year)',
+  };
+
+  const workArrangementLabels = {
+    remote: 'Remote',
+    hybrid: 'Hybrid',
+    on_site: 'On-site',
+  };
+
+  const formatSimulatedDate = (val, fallback = 'To be determined') => {
+    if (!val) return fallback;
+    try {
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      }
+    } catch {
+      // ignore
+    }
+    return val;
+  };
 
   const getSimulatedLetter = () => {
-    if (letterContent) {
-      return letterContent
-        .replace(/{candidate_name}/g, candidateName)
-        .replace(/{company_name}/g, companyName)
-        .replace(/{job_title}/g, jobTitle)
-        .replace(/{salary}/g, simulatedSalaryFormatted)
-        .replace(/{currency}/g, currency)
-        .replace(/{start_date}/g, startDate || 'Dec 4, 2023')
-        .replace(/{expiration_date}/g, expirationDate || 'Nov 17, 2023')
-        .replace(/{hiring_manager}/g, reportingManagerName || 'Hiring Manager')
-        .replace(/{equity}/g, simulatedEquity)
-        .replace(/{bonus}/g, simulatedBonus);
-    }
-    return `Dear ${candidateName},\n\nWe are delighted to confirm our offer for the role of ${jobTitle} reporting to ${reportingManagerName}.\n\nBase Compensation: ${simulatedSalaryFormatted} per year, payable semi-monthly.\nEquity Grant: ${simulatedEquity}.\nAnticipated Start: ${startDate || 'December 4, 2023'}.\n\nValid through: ${expirationDate || 'November 17, 2023'} (11:59 PM EST).`;
+    const rawTemplate = letterContent || DEFAULT_OFFER_TEMPLATE;
+    const values = {
+      candidate_name: candidateName,
+      candidate_email: application?.candidate?.user?.email || '',
+      company_name: companyName,
+      job_title: jobTitle,
+      salary: simulatedSalaryFormatted,
+      currency: currency,
+      pay_frequency: payFrequencyLabels[payFrequency] || payFrequency || 'semi-monthly',
+      start_date: formatSimulatedDate(startDate, 'To be determined'),
+      expiration_date: formatSimulatedDate(expirationDate, 'N/A'),
+      hiring_manager: reportingManagerName
+        ? `${reportingManagerName}${reportingManagerTitle ? `, ${reportingManagerTitle}` : ''}`
+        : 'Hiring Manager',
+      equity: simulatedEquity,
+      bonus: simulatedBonus,
+      sign_on_bonus: simulatedSignOn,
+      work_arrangement: workArrangementLabels[workArrangement] || workArrangement || 'Hybrid',
+    };
+
+    const aliasMap = {
+      applicant_name: 'candidate_name',
+      canidate_name: 'candidate_name',
+      candidate: 'candidate_name',
+      applicant: 'candidate_name',
+      name: 'candidate_name',
+      role: 'job_title',
+      position: 'job_title',
+      title: 'job_title',
+      company: 'company_name',
+      organization: 'company_name',
+      manager: 'hiring_manager',
+      manager_name: 'hiring_manager',
+      reporting_manager: 'hiring_manager',
+      expiry_date: 'expiration_date',
+      valid_until: 'expiration_date',
+      base_salary: 'salary',
+      annual_salary: 'salary',
+      compensation: 'salary',
+      signing_bonus: 'sign_on_bonus',
+      arrangement: 'work_arrangement',
+      frequency: 'pay_frequency',
+    };
+
+    return rawTemplate.replace(/\{([^{}]+)\}/g, (match, rawToken) => {
+      const norm = rawToken.trim().toLowerCase().replace(/[\s-]+/g, '_');
+      const key = aliasMap[norm] || norm;
+      return values[key] !== undefined ? String(values[key]) : match;
+    });
   };
 
   const handleSaveDraft = async () => {
@@ -190,7 +288,7 @@ export default function RecruiterCreateOfferPage() {
         work_arrangement: workArrangement,
         start_date: startDate,
         expiration_date: expirationDate,
-        letter_content: letterContent,
+        letter_content: letterContent || DEFAULT_OFFER_TEMPLATE,
       };
 
       const res = await offerApi.saveOfferDraft(applicationId, payload);
@@ -234,7 +332,7 @@ export default function RecruiterCreateOfferPage() {
         work_arrangement: workArrangement,
         start_date: startDate,
         expiration_date: expirationDate,
-        letter_content: letterContent,
+        letter_content: letterContent || DEFAULT_OFFER_TEMPLATE,
       };
 
       const draftRes = await offerApi.saveOfferDraft(applicationId, payload);
@@ -335,7 +433,7 @@ export default function RecruiterCreateOfferPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => navigate(`/recruiter/applications/${applicationId}`)}
+              onClick={() => setDiscardModalOpen(true)}
               className="px-3.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -561,8 +659,16 @@ export default function RecruiterCreateOfferPage() {
               {/* Reporting Line Strip */}
               <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-[#0058be]/10 text-[#0058be] font-bold flex items-center justify-center text-xs">
-                    MK
+                  <div className="w-9 h-9 rounded-xl bg-[#0058be]/10 text-[#0058be] font-bold flex items-center justify-center text-xs shrink-0">
+                    {reportingManagerName
+                      ? reportingManagerName
+                          .trim()
+                          .split(/\s+/)
+                          .map((n) => n[0])
+                          .join('')
+                          .substring(0, 2)
+                          .toUpperCase()
+                      : 'HM'}
                   </div>
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Reporting Line</span>
@@ -572,11 +678,8 @@ export default function RecruiterCreateOfferPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    const newName = prompt('Enter Reporting Manager Name:', reportingManagerName);
-                    if (newName) setReportingManagerName(newName);
-                  }}
-                  className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                  onClick={() => setManagerModalOpen(true)}
+                  className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-[#0058be] hover:border-blue-200 transition-colors cursor-pointer"
                 >
                   Change Manager
                 </button>
@@ -944,11 +1047,7 @@ export default function RecruiterCreateOfferPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => {
-                if (confirm('Discard changes and return to applicant dossier?')) {
-                  navigate(`/recruiter/applications/${applicationId}`);
-                }
-              }}
+              onClick={() => setDiscardModalOpen(true)}
               className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
             >
               Discard Draft
@@ -1042,6 +1141,24 @@ export default function RecruiterCreateOfferPage() {
           </div>
         </div>
       )}
+
+      {/* Edit Reporting Manager Modal */}
+      <EditReportingManagerModal
+        isOpen={managerModalOpen}
+        onClose={() => setManagerModalOpen(false)}
+        managerName={reportingManagerName}
+        managerTitle={reportingManagerTitle}
+        onSave={handleSaveReportingManager}
+      />
+
+      {/* Discard Draft Confirmation Modal */}
+      <DiscardDraftConfirmModal
+        isOpen={discardModalOpen}
+        onClose={() => setDiscardModalOpen(false)}
+        onConfirm={handleConfirmDiscard}
+        candidateName={cand.full_name || 'Candidate'}
+        applicationId={applicationId}
+      />
     </div>
   );
 }

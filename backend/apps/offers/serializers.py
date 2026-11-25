@@ -126,6 +126,8 @@ class CandidateOfferSerializer(serializers.ModelSerializer):
     total_target_compensation = serializers.IntegerField(read_only=True)
     per_period_amount = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     is_expired = serializers.BooleanField(read_only=True)
+    candidate_name = serializers.CharField(source="application.candidate.user.full_name", read_only=True)
+    candidate_email = serializers.CharField(source="application.candidate.user.email", read_only=True)
     job_id = serializers.IntegerField(source="application.job_id", read_only=True)
     job_title = serializers.CharField(source="application.job.job_title", read_only=True)
     company_name = serializers.CharField(source="application.job.company.name", read_only=True)
@@ -134,6 +136,7 @@ class CandidateOfferSerializer(serializers.ModelSerializer):
     company_verified = serializers.SerializerMethodField()
     hiring_team = serializers.SerializerMethodField()
     benefits = serializers.SerializerMethodField()
+    letter_content = serializers.SerializerMethodField()
 
     class Meta:
         model = Offer
@@ -141,6 +144,8 @@ class CandidateOfferSerializer(serializers.ModelSerializer):
             "id",
             "offer_reference",
             "application_id",
+            "candidate_name",
+            "candidate_email",
             "job_id",
             "job_title",
             "company_name",
@@ -279,3 +284,18 @@ class CandidateOfferSerializer(serializers.ModelSerializer):
                 },
             ]
         return benefits_list
+
+    def get_letter_content(self, obj):
+        try:
+            from .services.letter_generator import (
+                DEFAULT_OFFER_TEMPLATE,
+                build_template_context,
+                render_template_text,
+            )
+            raw = obj.letter_content or (
+                obj.template.body_template if obj.template else DEFAULT_OFFER_TEMPLATE
+            )
+            context = build_template_context(obj)
+            return render_template_text(raw, context)
+        except Exception:
+            return obj.letter_content
